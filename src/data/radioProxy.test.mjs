@@ -6,7 +6,7 @@ import {
   normalizeRadioBrowserStation,
   publicRadioStation,
   publicRadioHttpsUrl,
-} from '../../vite.config.js';
+} from '../../server/proxies.js';
 import { rankRadioStationsForRequest } from './radio.js';
 
 const UUID = '12345678-1234-4234-8234-123456789abc';

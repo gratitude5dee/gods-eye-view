@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import createViteConfig, {
+import createViteConfig from '../../vite.config.js';
+import {
   adsbLolFallbackAnchor,
   coalesceProxyRequest,
   launchLibraryRequestHeaders,
@@ -9,7 +10,7 @@ import createViteConfig, {
   regionalBriefHasAnySource,
   validMilitaryInstallationBox,
   validRegionalPoint,
-} from '../../vite.config.js';
+} from '../../server/proxies.js';
 
 test('regional proxy rejects absent and blank coordinates instead of coercing them to zero', () => {
   assert.equal(validRegionalPoint(new URLSearchParams('longitude=12.5')), null);

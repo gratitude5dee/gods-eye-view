@@ -24,7 +24,7 @@ import {
   resolveMilitaryInstallationTier,
   validMilitaryInstallationBox,
   writeMilitaryInstallationDisk,
-} from '../../vite.config.js';
+} from '../../server/proxies.js';
 
 const DAY_MS = 86_400_000;
 const TTL_MS = 30 * DAY_MS;

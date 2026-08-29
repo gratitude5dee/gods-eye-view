@@ -98,6 +98,8 @@ The dev server binds to **localhost** — your keys stay on your machine. Sharin
 
 **macOS shortcut:** `./scripts/dev-fresh.sh` clears the Vite cache and pulls your keys straight from the Keychain.
 
+**Hosting it somewhere:** [docs/deploy-vercel.md](docs/deploy-vercel.md) covers the Vercel path — a static globe-only baseline, then the serverless function that serves the whole `/api/*` surface — plus which layers need a long-running server (live AIS) and why.
+
 ---
 
 ## 🕐 The First Five Minutes
