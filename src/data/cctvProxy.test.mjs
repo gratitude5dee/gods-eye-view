@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   CCTV_FRAME_FETCH_TIMEOUT_MS,
   fetchCctvImageFromUpstream,
-} from '../../vite.config.js';
+} from '../../server/proxies.js';
 
 test('CCTV upstream frame fetch supplies a bounded abort signal', async () => {
   let observedSignal = null;

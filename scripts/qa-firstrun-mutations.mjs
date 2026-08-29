@@ -31,7 +31,7 @@ const FILES = {
   module: path.join(ROOT, 'src', 'firstRunExperience.js'),
   html: path.join(ROOT, 'index.html'),
   css: path.join(ROOT, 'style.css'),
-  vite: path.join(ROOT, 'vite.config.js'),
+  vite: path.join(ROOT, 'server', 'proxies.js'),
   main: path.join(ROOT, 'src', 'main.js'),
   ui: path.join(ROOT, 'src', 'ui.js'),
   docs: path.join(ROOT, 'docs', 'CURRENT-STATE.md'),
