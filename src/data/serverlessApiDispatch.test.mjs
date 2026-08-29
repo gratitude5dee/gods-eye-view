@@ -9,7 +9,7 @@ import {
   stripMount,
   toMiddlewareRequest,
 } from '../../server/app.js';
-import { aisRelayTarget, aisStreamSupported, unsupportedAisPayload } from '../../server/proxies.js';
+import { aisRelayTarget, aisStreamSupported, clientKey, unsupportedAisPayload } from '../../server/proxies.js';
 
 /** Minimal ServerResponse stand-in: records what a middleware wrote. */
 function fakeResponse() {
@@ -182,5 +182,22 @@ test('the AIS relay target keeps the sub-path and query, and is absent without c
   } finally {
     if (saved === undefined) delete process.env.AIS_LIVE_RELAY_URL;
     else process.env.AIS_LIVE_RELAY_URL = saved;
+  }
+});
+
+test('rate-limit buckets follow the platform address on serverless, the socket peer locally', () => {
+  const saved = process.env.VERCEL;
+  const req = {
+    socket: { remoteAddress: '10.0.0.7' },
+    headers: { 'x-vercel-forwarded-for': '203.0.113.9, 10.0.0.7', 'x-forwarded-for': '1.2.3.4' },
+  };
+  try {
+    delete process.env.VERCEL;
+    assert.equal(clientKey(req), '10.0.0.7');
+    process.env.VERCEL = '1';
+    assert.equal(clientKey(req), '203.0.113.9');
+    assert.equal(clientKey({ socket: { remoteAddress: '10.0.0.7' }, headers: {} }), '10.0.0.7');
+  } finally {
+    if (saved === undefined) delete process.env.VERCEL; else process.env.VERCEL = saved;
   }
 });

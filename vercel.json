@@ -8,7 +8,7 @@
   ],
   "functions": {
     "api/gev.js": {
-      "maxDuration": 30,
+      "maxDuration": 60,
       "memory": 1024
     }
   }
