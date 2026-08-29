@@ -105,6 +105,14 @@ CCTV feed settings. `.env.example` is the full list.
 The `GOOGLE_MAPS_API_KEY` is read on both sides (browser 3D Tiles, server-side
 Places), so it needs to be set once and restricted by referrer + API.
 
+A public deployment brokers *your* paid quota (OpenAI Realtime, Google Places),
+and the per-IP limiters that guard those routes are opt-in — set
+`GEV_RATELIMIT_OPENAI_PER_MIN` and `GEV_RATELIMIT_GOOGLE_PER_MIN` (see
+`.env.example`) before exposing a deployment, or leave those keys unset. The
+limiter buckets by the platform-set `x-vercel-forwarded-for` address, since the
+socket peer on Vercel is Vercel's own proxy; they are still per instance, so
+treat them as abuse dampening, not a billing cap.
+
 ## 4. What does not fit serverless
 
 A Vercel invocation is per-request and its filesystem is read-only apart from
@@ -158,7 +166,20 @@ module state; CCTV keeps camera catalogs and frame buffers in memory. Per
 instance, all of that is a cold start away from empty. Consequences are extra
 upstream calls and a slower first frame, not wrong data. CCTV MJPEG/HLS frame
 grabbing is also the most latency-sensitive route here — keep an eye on the
-function's `maxDuration` (30 s in `vercel.json`).
+function's `maxDuration` (60 s in `vercel.json`).
+
+One route can legitimately outlive that ceiling: a fully cold `/api/firms`
+refresh fetches three VIIRS sources sequentially with a 60 s timeout each, so it
+can hit the host deadline and surface a platform error rather than the proxy's
+own structured fallback. Subsequent requests are served from cache (and
+serve-stale), so the exposure is the first request after a cold start with an
+empty `/tmp`. Warm it with a scheduled request, or drop the per-source timeout,
+if that first-hit failure matters.
+
+The voice diagnostics sink (`/api/realtime/debug-log`) writes to
+`$TMPDIR/gev-logs` on serverless hosts instead of the read-only bundle, so the
+log is per instance and disposable there; use the platform's log drain if you
+need durable voice transcripts.
 
 ### If you want everything live, unconditionally
 
@@ -180,6 +201,10 @@ curl -s "$BASE/api/tomtom/status"                                       # hasKey
 curl -s -X POST "$BASE/api/realtime/token" -H 'content-type: application/json' -d '{}' | head -c 200
 curl -s "$BASE/api/ais-live" | head -c 120                              # 503 unsupported unless relayed
 ```
+
+All of the above were confirmed against a real deployment of this repo, with
+keyless layers degrading honestly (`/api/tomtom/status` → `hasKey:false`) rather
+than failing.
 
 In the browser: the globe and 3D tiles load, aircraft appear over a populated
 box, the CCTV tray lists cameras and a thumbnail renders, the traffic layer

@@ -495,12 +495,17 @@ function enforceOptInRateLimit(limiter, req, res) {
 }
 
 /**
- * Client key for rate limiting. Uses the real socket peer address only — we do
- * NOT trust X-Forwarded-For (client-controlled; a rotating value would mint fresh
- * quota and grow the limiter map). This is a localhost dev proxy, so the socket
- * address is the real client.
+ * Client key for rate limiting. Prefers the socket peer address, and never trusts
+ * X-Forwarded-For (client-controlled; a rotating value would mint fresh quota and
+ * grow the limiter map). Behind a serverless platform the peer is the platform's
+ * own proxy, which would collapse every visitor into one bucket, so there we read
+ * the platform-set forwarding header instead — that one the platform overwrites.
  */
-function clientKey(req) {
+export function clientKey(req) {
+  if (isServerlessRuntime()) {
+    const platform = String(req.headers?.['x-vercel-forwarded-for'] || '').split(',')[0].trim();
+    if (platform) return platform;
+  }
   return String(req.socket?.remoteAddress || 'local');
 }
 
@@ -1339,7 +1344,9 @@ const OPENAI_REALTIME_REASONING_DEFAULT = 'low';
 const OPENAI_REALTIME_CONTEXT_TOKENS_DEFAULT = 3000;
 const OPENAI_REALTIME_CONTEXT_RETENTION_DEFAULT = 0.5;
 const OPENAI_HUD_SUMMARY_MODEL_DEFAULT = 'gpt-5-nano';
-const REALTIME_DEBUG_LOG_DIR = path.join(ROOT_DIR, '.gev-logs');
+const REALTIME_DEBUG_LOG_DIR = isServerlessRuntime()
+  ? path.join(os.tmpdir(), 'gev-logs')
+  : path.join(ROOT_DIR, '.gev-logs');
 const REALTIME_DEBUG_LOG_FILE = path.join(REALTIME_DEBUG_LOG_DIR, 'realtime-conversations.jsonl');
 const REALTIME_DEBUG_LOG_MAX_BYTES = 8 * 1024 * 1024;
 

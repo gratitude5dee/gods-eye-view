@@ -10,3 +10,5 @@ output/
 .DS_Store
 .gstack/
 3d-models/
+.vercel
+.env.local
