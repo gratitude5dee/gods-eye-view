@@ -43,6 +43,22 @@ test('photoreal (globe hidden): the tile-skin pick is not second-guessed by hidd
   assert.equal(snap.heightFor(viewer, 'g1d', POS), 2712);
 });
 
+test('photoreal → globe switch: a stationary contact resamples on the new surface', () => {
+  const snap = createGroundSnap();
+  const photoreal = fakeViewer({ sampled: 2712, globeShow: false, globeH: undefined });
+  assert.equal(snap.heightFor(photoreal, 'g1f', POS), 2712);
+  const fallback = fakeViewer({ sampled: undefined, globeShow: true, globeH: 3112 });
+  assert.equal(snap.heightFor(fallback, 'g1f', POS), 3112);
+});
+
+test('globe → photoreal switch: a stationary contact resamples the tile skin', () => {
+  const snap = createGroundSnap();
+  const fallback = fakeViewer({ sampled: 3112, globeShow: true, globeH: 3112 });
+  assert.equal(snap.heightFor(fallback, 'g1g', POS), 3112);
+  const photoreal = fakeViewer({ sampled: 2712, globeShow: false, globeH: 3112 });
+  assert.equal(snap.heightFor(photoreal, 'g1g', POS), 2712);
+});
+
 test('fallback globe: when both the pick and the globe miss, there is still no evidence', () => {
   const snap = createGroundSnap();
   const viewer = fakeViewer({ sampled: undefined, globeShow: true, globeH: undefined });

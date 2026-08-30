@@ -184,10 +184,12 @@ function _tilesReady(viewer) {
  */
 export function createGroundSnap() {
   /** @type {Map<string, {h: number|null, samplePos: Cesium.Cartesian3|null,
-   *  held: boolean, nextRetryMs: number, misses: number}>} Per-icao snap state:
-   *  the sampled height and the surface point it was measured at, whether that
-   *  pair is still the fresh answer or has been demoted to a bounded last-known
-   *  (`held`), and the retry backoff a miss earned. */
+   *  held: boolean, nextRetryMs: number, misses: number, globeShown: boolean}>}
+   *  Per-icao snap state: the sampled height and the surface point it was
+   *  measured at, whether that pair is still the fresh answer or has been
+   *  demoted to a bounded last-known (`held`), the retry backoff a miss earned,
+   *  and which surface regime (fallback globe vs photoreal skin) the
+   *  measurement was taken on. */
   const entries = new Map();
   let windowStartMs = 0;
   let windowCount = 0;
@@ -294,6 +296,17 @@ export function createGroundSnap() {
   function heightFor(viewer, icao, pos, getExclusions) {
     const surfacePos = Cesium.Ellipsoid.WGS84.scaleToGeodeticSurface(pos, scratchSurfacePos);
     if (!surfacePos) return null;
+    // A measurement only describes the surface it was taken ON. When the map
+    // stack switches (photoreal skin ↔ fallback globe) the rendered surface
+    // under a STATIONARY contact changes while nothing else invalidates the
+    // cache — no movement, no ground flip, no eviction — so a snap from the
+    // other regime would keep answering, and hold a model buried (or floating)
+    // by the skin/terrain spread for as long as the contact stays put. Drop
+    // the whole entry, backoff included: the old surface's misses say nothing
+    // about the new surface either.
+    const globeShown = !!viewer?.scene?.globe?.show;
+    const stale = entries.get(icao);
+    if (stale && stale.globeShown !== globeShown) entries.delete(icao);
     const cached = entries.get(icao);
     if (cached && cached.h != null && cached.samplePos && !cached.held) {
       if (Cesium.Cartesian3.distanceSquared(surfacePos, cached.samplePos) <= MOVE_INVALIDATE_M * MOVE_INVALIDATE_M) {
@@ -324,6 +337,7 @@ export function createGroundSnap() {
         held,
         nextRetryMs: now + Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** misses),
         misses: misses + 1,
+        globeShown,
       };
       entries.set(icao, next);
       return heldSnapM(next, surfacePos);
@@ -371,6 +385,7 @@ export function createGroundSnap() {
       held: false,
       nextRetryMs: 0,
       misses: 0,
+      globeShown,
     });
     return sampled;
   }
