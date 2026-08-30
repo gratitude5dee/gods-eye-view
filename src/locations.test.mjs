@@ -13,6 +13,7 @@ import {
   PLACE_VIEWPORT_MAX_SPAN_KM,
   PLACE_ANCHOR_OFFSET_RATIO,
   flyToGlobeView,
+  findPoiByName,
   flyToPresetLocation,
   geocodeNavigationMode,
   regionFramingPlan,
@@ -596,4 +597,31 @@ test('search without an authority hook preserves the existing caller contract', 
   const result = await runSearch(viewer, {});
   assert.equal(result.navigationMode, 'city-overview');
   assert.equal(viewer.flights.length, 1);
+});
+
+// Single-word corridor stops (Timure, Betrawati) must reach their curated pose —
+// including their per-POI groundElevation — instead of falling through to generic
+// geocode framing, without reopening loose single-token matching.
+test('an exact one-word query resolves that curated POI', () => {
+  assert.deepEqual(findPoiByName('Timure'), { cityId: 'rasuwagadhi', index: 1 });
+  assert.deepEqual(findPoiByName('  betrawati '), { cityId: 'rasuwagadhi', index: 3 });
+});
+
+test('a one-word POI still resolves when qualified by its own city name', () => {
+  assert.deepEqual(findPoiByName('Timure, Rasuwagadhi'), { cityId: 'rasuwagadhi', index: 1 });
+});
+
+test('a one-word POI never matches a query that names anything else', () => {
+  assert.equal(findPoiByName('the road north of Timure'), null);
+  assert.equal(findPoiByName('Timure to Betrawati'), null);
+  assert.equal(findPoiByName('Timure, Nepal'), null);
+});
+
+test('multi-word containment is unchanged and still outranks a one-word hit', () => {
+  assert.deepEqual(findPoiByName('frost tower bank'), { cityId: 'austin', index: 1 });
+  assert.deepEqual(
+    findPoiByName('the Rasuwagadhi Border Crossing'),
+    { cityId: 'rasuwagadhi', index: 0 },
+  );
+  assert.equal(findPoiByName('Tower'), null);
 });

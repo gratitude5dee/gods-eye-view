@@ -20,8 +20,11 @@ export const CITY_POIS = {
     groundElevation: 1800,
     viewBounds: { southwest: { lat: 27.89, lng: 85.09 }, northeast: { lat: 28.31, lng: 85.43 } },
     pois: [
-      { name: 'Rasuwagadhi Border Crossing', lat: 28.2790, lon: 85.3780, alt: 2600, pitch: -30, heading: 195, buildingHeight: 20 },
-      { name: 'Timure', lat: 28.2537, lon: 85.3665, alt: 2000, pitch: -28, heading: 200, buildingHeight: 15, groundElevation: 1900 },
+      // Steep pitch on purpose: `alt` is a RANGE, so a shallow one stands the camera off
+      // ~2.2 km up-valley into 3,200 m ridges and buries the frame. -60° keeps the standoff
+      // inside the gorge.
+      { name: 'Rasuwagadhi Border Crossing', lat: 28.2790, lon: 85.3780, alt: 2600, pitch: -60, heading: 195, buildingHeight: 20 },
+      { name: 'Timure', lat: 28.2537, lon: 85.3665, alt: 2000, pitch: -42, heading: 200, buildingHeight: 15, groundElevation: 1900 },
       { name: 'Syabrubesi', lat: 28.1636, lon: 85.3372, alt: 2400, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 1500 },
       { name: 'Betrawati', lat: 27.9726, lon: 85.1707, alt: 2600, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 760 },
       { name: 'Trishuli Bazaar', lat: 27.9167, lon: 85.1500, alt: 2600, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 620 },
@@ -333,8 +336,12 @@ function poiNameTokens(s) {
  * Capitol" reuses its hand-tuned camera pose (same framing as the LOCATIONS-panel button) instead
  * of generic geocode framing. Match is order-free word-set CONTAINMENT (the POI name's words must
  * all appear in the query — so "Frost Bank Tower" matches "frost tower bank", and extra words like
- * a trailing city are fine), and the POI name must be ≥2 words so a single shared token ("Texas",
- * "Tower") can't grab the wrong landmark. Returns { cityId, index } or null.
+ * a trailing city are fine), and a ≥2-word POI name is required for that loose containment so a
+ * single shared token ("Texas", "Tower") can't grab the wrong landmark.
+ *
+ * A one-word POI ("Timure", "Betrawati") is matchable only by a query that names IT and nothing
+ * else beyond its city — containment would let any ask mentioning the word drag the whole preset
+ * pose along. It always loses to a multi-word match. Returns { cityId, index } or null.
  * @param {string} query
  * @returns {{cityId: string, index: number} | null}
  */
@@ -343,9 +350,16 @@ export function findPoiByName(query) {
   if (q.size === 0) return null;
   let best = null;
   for (const [cityId, city] of Object.entries(CITY_POIS)) {
+    const cityTokens = poiNameTokens(city.name);
     city.pois.forEach((poi, index) => {
       const name = poiNameTokens(poi.name);
-      if (name.size < 2) return; // single-word POI names are too ambiguous to match loosely
+      if (name.size === 0) return;
+      if (name.size === 1) {
+        const named = [...name][0];
+        const onlyNamesThisPoi = q.has(named) && [...q].every((w) => w === named || cityTokens.has(w));
+        if (onlyNamesThisPoi && !best) best = { cityId, index, size: 1 };
+        return;
+      }
       const fullyNamed = [...name].every((w) => q.has(w));
       if (fullyNamed && (!best || name.size > best.size)) best = { cityId, index, size: name.size };
     });
