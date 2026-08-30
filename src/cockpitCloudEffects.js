@@ -1,5 +1,11 @@
 import * as Cesium from 'cesium';
 import { deriveWeatherEffectProfile, weatherAltitudeFactors } from './weatherEffectsMath.js';
+import {
+  cockpitAerialPerspective,
+  cockpitSunDirection,
+  cockpitSunIrradiance,
+  solarPositionDeg,
+} from './cockpitAtmosphere.js';
 
 const WEATHER_REFRESH_MS = 5 * 60_000;
 const CLOUD_FRAME_MS = 1000 / 12;
@@ -16,14 +22,25 @@ const VERTEX_SHADER = `
   }
 `;
 
-// Adapted from the supplied R&D cloudscape. This pass outputs transparent
-// clouds only so Cesium remains the sky/terrain renderer. Three FBM octaves
-// and 24 ray steps keep the presentation bounded on integrated GPUs.
+// Adapted from the supplied R&D cloudscape, with scattering terms ported from
+// three-geospatial's `@takram/three-clouds` and `@takram/three-atmosphere`:
+// a dual-lobe Henyey-Greenstein phase function, Kulla/Wrenninge multiple-
+// scattering octaves, a powder term, and distance-based aerial perspective.
+// This pass outputs transparent clouds only so Cesium remains the sky/terrain
+// renderer. Four FBM octaves, 24 primary steps, and a 3-tap light march keep
+// the presentation bounded on integrated GPUs.
 const FRAGMENT_SHADER = `
   precision highp float;
 
+  #define RECIPROCAL_PI4 0.07957747154594767
+  #define MULTI_SCATTERING_OCTAVES 3
+
   uniform vec2 uResolution;
   uniform vec2 uWind;
+  uniform vec2 uAerial;
+  uniform vec3 uSunDirection;
+  uniform vec3 uSunColor;
+  uniform vec3 uSkyColor;
   uniform float uTime;
   uniform float uStrength;
 
@@ -52,15 +69,35 @@ const FRAGMENT_SHADER = `
     );
   }
 
+  // Four octaves with a per-octave offset so lattice features do not stack.
+  // The sum is renormalized to the three-octave weight total the density
+  // thresholds were tuned against, so the extra detail costs no coverage.
   float fbm(vec3 p) {
     float value = 0.0;
     float weight = 0.54;
-    for (int octave = 0; octave < 3; octave++) {
+    float total = 0.0;
+    for (int octave = 0; octave < 4; octave++) {
       value += weight * noise(p);
-      p *= 2.03;
+      total += weight;
+      p = p * 2.03 + vec3(11.7, 3.1, 7.3);
       weight *= 0.48;
     }
-    return value;
+    return value * (0.9227 / total);
+  }
+
+  // Dual-lobe Henyey-Greenstein: a forward lobe for the silver lining plus a
+  // wide back lobe for ambient bulk. The attenuation argument flattens the
+  // lobes for the higher multiple-scattering octaves.
+  vec2 henyeyGreenstein(vec2 g, float cosTheta) {
+    vec2 g2 = g * g;
+    return RECIPROCAL_PI4
+      * ((1.0 - g2) / max(vec2(1e-7), pow(1.0 + g2 - 2.0 * g * cosTheta, vec2(1.5))));
+  }
+
+  float phaseFunction(float cosTheta, float attenuation) {
+    const vec2 g = vec2(0.78, -0.28);
+    const vec2 lobeWeights = vec2(0.7, 0.3);
+    return dot(henyeyGreenstein(g * attenuation, cosTheta), lobeWeights);
   }
 
   float cloudDensity(vec3 p) {
@@ -74,30 +111,61 @@ const FRAGMENT_SHADER = `
     return smoothstep(threshold, 0.86, field) * lower * upper;
   }
 
+  // Optical depth toward the sun over three steps of growing length: cheap
+  // enough for the overlay, long enough to darken cloud interiors.
+  float lightOpticalDepth(vec3 point, vec3 sunDirection, float jitter) {
+    float stepSize = 0.16;
+    float distanceAlongRay = stepSize * jitter;
+    float opticalDepth = 0.0;
+    for (int i = 0; i < 3; i++) {
+      opticalDepth += cloudDensity(point + sunDirection * distanceAlongRay) * stepSize;
+      distanceAlongRay += stepSize;
+      stepSize *= 1.8;
+    }
+    return opticalDepth * 12.0;
+  }
+
+  // Kulla's multiple-scattering octaves: each octave halves attenuation,
+  // contribution, and phase sharpness, which is what keeps thick clouds from
+  // going flat black.
+  float multipleScattering(float opticalDepth, float cosTheta) {
+    vec3 coeffs = vec3(1.0);
+    float scattering = 0.0;
+    for (int octave = 0; octave < MULTI_SCATTERING_OCTAVES; octave++) {
+      scattering += coeffs.x * exp(-opticalDepth * coeffs.y) * phaseFunction(cosTheta, coeffs.z);
+      coeffs *= 0.5;
+    }
+    return scattering;
+  }
+
   void main() {
     vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
     vec3 rayOrigin = vec3(0.0, 0.72, uTime * 0.035);
     vec3 rayDirection = normalize(vec3(uv.x, uv.y * 0.92 + 0.18, 1.28));
-    vec3 sunDirection = normalize(vec3(0.45, 0.28, 0.84));
+    vec3 sunDirection = normalize(uSunDirection);
+    float cosTheta = dot(rayDirection, sunDirection);
+    float jitter = hash(rayDirection + uTime);
     vec3 color = vec3(0.0);
     float alpha = 0.0;
-    float distanceAlongRay = 0.15 + 0.06 * hash(rayDirection + uTime);
+    float distanceAlongRay = 0.15 + 0.06 * jitter;
+    float extinctionScale = uAerial.y;
+    float inscatterPerUnit = uAerial.x;
 
     for (int stepIndex = 0; stepIndex < 24; stepIndex++) {
       vec3 point = rayOrigin + rayDirection * distanceAlongRay;
       float density = cloudDensity(point);
       if (density > 0.012) {
-        float lightDensity = cloudDensity(point + sunDirection * 0.38);
-        float absorption = exp(-lightDensity * 3.8);
-        float powder = 1.0 - exp(-density * 2.2);
-        float lighting = mix(0.22, 1.0, absorption * powder);
-        vec3 cloudColor = mix(
-          vec3(0.31, 0.36, 0.43),
-          vec3(0.96, 0.96, 0.93),
-          lighting
-        );
+        float opticalDepth = lightOpticalDepth(point, sunDirection, jitter) * extinctionScale;
+        // Powder: forward-scattering darkening at illuminated cloud edges.
+        float powder = 1.0 - 0.72 * exp(-density * 14.0);
+        vec3 radiance = uSunColor * multipleScattering(opticalDepth, cosTheta) * powder
+          + uSkyColor * (0.09 + 0.16 * exp(-opticalDepth));
+        // Aerial perspective: the air column between camera and sample adds
+        // sky inscatter and washes the cloud out with distance.
+        float aerial = 1.0 - exp(-distanceAlongRay * inscatterPerUnit);
+        radiance = mix(radiance, uSkyColor, aerial);
         float sampleAlpha = (1.0 - alpha) * density * (0.16 + uStrength * 0.13);
-        color += cloudColor * sampleAlpha;
+        color += radiance * sampleAlpha;
         alpha += sampleAlpha;
       }
       if (alpha > 0.92) break;
@@ -107,7 +175,9 @@ const FRAGMENT_SHADER = `
     float visorFade = smoothstep(-0.82, -0.28, uv.y);
     alpha *= visorFade * uStrength * 0.78;
     color = alpha > 0.001 ? color / max(alpha, 0.001) : vec3(0.0);
-    gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.82));
+    // Tonemap the scattered radiance: the phase function is not energy-bounded.
+    color = color / (color + 0.72);
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), clamp(alpha, 0.0, 0.82));
   }
 `;
 
@@ -281,6 +351,10 @@ export class CockpitCloudEffectsController {
         time: gl.getUniformLocation(program, 'uTime'),
         strength: gl.getUniformLocation(program, 'uStrength'),
         wind: gl.getUniformLocation(program, 'uWind'),
+        aerial: gl.getUniformLocation(program, 'uAerial'),
+        sunDirection: gl.getUniformLocation(program, 'uSunDirection'),
+        sunColor: gl.getUniformLocation(program, 'uSunColor'),
+        skyColor: gl.getUniformLocation(program, 'uSkyColor'),
       };
     } catch (error) {
       console.warn('[Cockpit clouds] Renderer unavailable:', error);
@@ -478,7 +552,47 @@ export class CockpitCloudEffectsController {
       Math.sin(windRadians) * windScale,
       -Math.cos(windRadians) * windScale,
     );
+    const atmosphere = this.atmosphereUniforms();
+    gl.uniform3f(
+      this.locations.sunDirection,
+      atmosphere.sunDirection.x,
+      atmosphere.sunDirection.y,
+      atmosphere.sunDirection.z,
+    );
+    gl.uniform3f(this.locations.sunColor, ...atmosphere.sunColor);
+    gl.uniform3f(this.locations.skyColor, ...atmosphere.skyColor);
+    gl.uniform2f(
+      this.locations.aerial,
+      atmosphere.aerial.inscatter,
+      atmosphere.aerial.extinctionScale,
+    );
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  /**
+   * Sun and air-column terms for the cloud pass, from the real solar position
+   * at the camera. Falls back to a fixed noon sun when the camera is unknown.
+   * @returns {{sunDirection: {x: number, y: number, z: number}, sunColor: number[], skyColor: number[], aerial: {inscatter: number, extinctionScale: number}}}
+   */
+  atmosphereUniforms() {
+    const point = this.cameraPoint();
+    const solar = point
+      ? solarPositionDeg({
+        dateMs: Date.now(),
+        latitude: point.latitude,
+        longitude: point.longitude,
+      })
+      : { elevationDeg: 45, azimuthDeg: 0 };
+    const headingDeg = Number.isFinite(this.viewer?.camera?.heading)
+      ? Cesium.Math.toDegrees(this.viewer.camera.heading)
+      : 0;
+    const irradiance = cockpitSunIrradiance(solar.elevationDeg);
+    return {
+      aerial: cockpitAerialPerspective(point?.altitudeM ?? 0),
+      skyColor: irradiance.sky,
+      sunColor: irradiance.sun,
+      sunDirection: cockpitSunDirection(solar.elevationDeg, solar.azimuthDeg - headingDeg),
+    };
   }
 
   getSnapshot() {

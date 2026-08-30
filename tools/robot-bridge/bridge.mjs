@@ -12,6 +12,11 @@
  *     --provider synthetic --ingest http://localhost:5173/api/robot/ingest \
  *     --seed 5 --rate 10
  *
+ * A MuJoCo sim2sim rollout piped in on stdin (see providers/mujoco-g1.mjs):
+ *   python3 ...play_g1_joystick.py --telemetry stdout | \
+ *     GEV_ROBOT_INGEST_TOKEN=secret node tools/robot-bridge/bridge.mjs \
+ *       --provider mujoco-g1 --rate 10
+ *
  * @module tools/robot-bridge/bridge
  */
 
@@ -24,7 +29,7 @@ const MAX_PENDING_FRAMES = 2000;
 /** Shutdown drains pending frames for at most this long before exiting. */
 const SHUTDOWN_DRAIN_MS = 10_000;
 /** Providers this bridge may load; --provider is not a free module path. */
-const KNOWN_PROVIDERS = new Set(['synthetic', 'replay', 'phone']);
+const KNOWN_PROVIDERS = new Set(['synthetic', 'replay', 'phone', 'mujoco-g1']);
 
 function parseArgs(argv) {
   const args = {
@@ -63,6 +68,9 @@ async function main() {
   }
 
   const provider = await loadProvider(args.provider, {
+    // Provider-specific flags (e.g. mujoco-g1's --socket/--provenance) ride
+    // through unchanged; providers ignore keys they do not know.
+    ...args,
     seed: args.seed,
     rateHz: args.rate,
     id: args.id,
