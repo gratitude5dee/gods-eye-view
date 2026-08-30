@@ -3462,6 +3462,8 @@ const TFL_JAMCAM_URL = 'https://api.tfl.gov.uk/Place/Type/JamCam';
 const TFL_IMAGE_ORIGIN = 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/';
 const DEFAULT_TFL_MAX_SOURCES = 250;
 const LONDON_CENTER = { lat: 51.5074, lon: -0.1278 };
+/** Bundled Nepal street-level viewpoints (see scripts/build-cctv-pack-nepal.mjs). */
+const NEPAL_PACK_FILE = 'config/cctv_sources.nepal.json';
 /** Camera CATALOGS change rarely; 15 min keeps multi-megabyte upstream list refetches (Austin rows.json + 4 Caltrans districts + TfL) infrequent. Frames are fetched per-request and are unaffected. */
 const CCTV_SOURCE_CACHE_MS = 15 * 60 * 1000;
 /** Per-provider catalog-fetch timeout. Bounds the worst-case refresh so one
@@ -3524,6 +3526,29 @@ function loadSourcesFromFile() {
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.warn('[CCTV] failed to read source file:', resolved, error?.message || error);
+    return [];
+  }
+}
+
+/**
+ * Load the bundled Nepal street-level viewpoint pack.
+ *
+ * Unlike CCTV_SOURCES_FILE — which replaces the live packs — this one merges
+ * alongside them, because it covers a region none of them reach. Entries carry
+ * no feed URL on purpose: the frame route falls through to Street View, which
+ * is the only ground-level imagery available in Nepal.
+ *
+ * @returns {Array<object>} Raw source objects, or [] when absent or disabled.
+ */
+export function loadNepalViewpointPack() {
+  if (String(process.env.CCTV_NEPAL_ENABLED || '1').trim() === '0') return [];
+  const resolved = path.resolve(ROOT_DIR, NEPAL_PACK_FILE);
+  try {
+    if (!fs.existsSync(resolved)) return [];
+    const parsed = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('[CCTV] failed to read Nepal viewpoint pack:', error?.message || error);
     return [];
   }
 }
@@ -4178,7 +4203,12 @@ async function refreshCctvSources() {
     fromTfl = tflResult.status === 'fulfilled' ? tflResult.value : [];
   }
   // Live sources first so file/env overrides win on duplicate IDs (Map last-write).
-  const merged = [...fromAustin, ...fromCaltrans, ...fromTfl, ...fromFile, ...fromEnv];
+  // The Nepal pack leads because the global cap truncates from the tail, and it is
+  // the only coverage in its region — losing it would blank the layer over Nepal,
+  // while the same cut off a 250-camera city pack only thins it.
+  const merged = [
+    ...loadNepalViewpointPack(), ...fromAustin, ...fromCaltrans, ...fromTfl, ...fromFile, ...fromEnv,
+  ];
 
   // Deduplicate by camera ID (last-write wins because of Map.set)
   const byId = new Map();

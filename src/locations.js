@@ -30,6 +30,19 @@ export const CITY_POIS = {
       { name: 'Trishuli Bazaar', lat: 27.9167, lon: 85.1500, alt: 2600, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 620 },
     ],
   },
+  kathmandu: {
+    name: 'Kathmandu',
+    // Valley floor is a flat ~1,300 m bowl, so the city elevation carries every POI.
+    groundElevation: 1300,
+    viewBounds: { southwest: { lat: 27.63, lng: 85.25 }, northeast: { lat: 27.77, lng: 85.41 } },
+    pois: [
+      { name: 'Koteshwor Junction', lat: 27.6785, lon: 85.3494, alt: 900, pitch: -32, heading: 300, buildingHeight: 20 },
+      { name: 'Kalanki Junction', lat: 27.6934, lon: 85.2810, alt: 900, pitch: -32, heading: 60, buildingHeight: 20 },
+      { name: 'Gaushala Chowk', lat: 27.7060, lon: 85.3430, alt: 900, pitch: -32, heading: 210, buildingHeight: 20 },
+      { name: 'Tribhuvan International Airport', lat: 27.6966, lon: 85.3591, alt: 1600, pitch: -30, heading: 340, buildingHeight: 25 },
+      { name: 'Kathmandu Durbar Square', lat: 27.7045, lon: 85.3070, alt: 700, pitch: -30, heading: 120, buildingHeight: 30 },
+    ],
+  },
   austin: {
     name: 'Austin',
     groundElevation: 150, // meters above WGS84 ellipsoid
