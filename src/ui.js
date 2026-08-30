@@ -3358,6 +3358,8 @@ export class StyleManager {
           this._locationSearch.classList.remove('expanded');
           this._locationSearch.value = '';
           this._locationSearch.blur();
+        } else if (groundRobotsLayer.isChaseCameraActive?.()) {
+          this._releaseFollowCamera();
         }
       }
       if (e.key.toLowerCase() === 'h') {
