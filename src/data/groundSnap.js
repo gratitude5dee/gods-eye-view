@@ -126,6 +126,24 @@ const HELD_SNAP_CONTRADICTION_M = 5;
 const RETRY_BASE_MS = 2000;
 /** Backoff cap (ms) — on the OSM fallback (no tile skin) sampleHeight misses forever. */
 const RETRY_MAX_MS = 30000;
+/** @constant {number} How far a pick sample may disagree with the rendered
+ *  fallback globe before the globe reading wins.
+ *
+ *  Applies only while the GLOBE is the rendered surface (`globe.show`). There
+ *  the skin `sampleHeight` is asked to measure and the surface
+ *  `globe.getHeight` reads are the SAME terrain mesh, so a pick that lands far
+ *  from the globe reading did not measure the ground — it hit whatever else
+ *  the vertical ray crossed (an unexcluded primitive, imposter geometry, a
+ *  stale depth read). Measured in the sandbox fallback: a G1 snap accepted a
+ *  pick ~400 m BELOW `getHeight` at the same spot and the model rendered
+ *  inside the mountain. 30 m is an order above the honest disagreement between
+ *  two reads of one mesh (LOD refinement across a retry is metres) and an
+ *  order under the failures this guards against.
+ *
+ *  Deliberately NOT applied under a photoreal tileset (`globe.show` false):
+ *  the tile skin is a different surface from the hidden globe's terrain, and
+ *  the spread between them is real elevation the snap exists to capture. */
+const SNAP_GLOBE_DISAGREEMENT_M = 30;
 /** Max sampleHeight calls per window across the layer (airport-cluster burst guard). */
 const SAMPLE_BUDGET_PER_WINDOW = 4;
 /** Budget window length (ms). */
@@ -312,13 +330,28 @@ export function createGroundSnap() {
     };
     if (!_tilesReady(viewer)) return miss();
     windowCount += 1;
+    const carto = Cesium.Cartographic.fromCartesian(pos, Cesium.Ellipsoid.WGS84, scratchCarto);
     let sampled;
     try {
-      const carto = Cesium.Cartographic.fromCartesian(pos, Cesium.Ellipsoid.WGS84, scratchCarto);
       // sampleHeight throws when unsupported (no depth textures) — that's a miss.
       sampled = viewer.scene.sampleHeight(carto, getExclusions ? getExclusions() : undefined);
     } catch {
       sampled = undefined;
+    }
+    // While the fallback globe is the rendered surface, `globe.getHeight` reads
+    // the same mesh the pick was aimed at, without a pick render. A pick that
+    // disagrees with it beyond SNAP_GLOBE_DISAGREEMENT_M measured something
+    // else, and the globe reading wins — including when the pick missed
+    // outright, which on the fallback globe it otherwise does forever.
+    const globe = viewer?.scene?.globe;
+    if (globe?.show) {
+      let globeH;
+      try { globeH = globe.getHeight(carto); } catch { globeH = undefined; }
+      if (Number.isFinite(globeH)
+        && (!Number.isFinite(sampled)
+          || Math.abs(sampled - globeH) > SNAP_GLOBE_DISAGREEMENT_M)) {
+        sampled = globeH;
+      }
     }
     // Same sanity floor as cctv.js's sampleGroundHeight: a hit far below the
     // ellipsoid is pick garbage, not ground.
