@@ -62,7 +62,7 @@ settled and not applicable because no Google 3D tileset is active.
 
 ## Setup
 
-- **URL:** http://localhost:4173 — auto-flies to Austin on load. Give photoreal tiles ~10s.
+- **URL:** http://localhost:4173 — auto-flies to Rasuwagadhi, Nepal on load. Give photoreal tiles ~10s.
 - **Voice (the real feature):** click **GEV MIC** (bottom of screen) → wait for **LISTENING** →
   just talk. It marks the map *as it talks*, without announcing that it's drawing. Click
   **STOP** when done. (Needs `OPENAI_API_KEY`; `dev-fresh.sh` injects it from Keychain.)

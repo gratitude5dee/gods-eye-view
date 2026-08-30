@@ -275,7 +275,7 @@ async function main() {
       { timeout: 60000, polling: 100 },
     );
 
-    // flyToAustin schedules its 600 m arrival 500 ms after initialization.
+    // flyToStartupView schedules its arrival 500 ms after initialization.
     // Let that callback start, then cancel it before establishing the global
     // measurement camera so startup motion cannot invalidate the sample.
     await new Promise((resolve) => setTimeout(resolve, 600));

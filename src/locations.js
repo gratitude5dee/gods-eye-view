@@ -10,8 +10,23 @@ import { viewportBias, placesNearViewRecovery } from './annotations/annotationRe
  *   heading — optimal camera heading in degrees (0=N, 90=E, 180=S, 270=W)
  *   pitch   — camera tilt in degrees (negative = looking down)
  *   buildingHeight — estimated height of landmark center above ground (meters)
+ *   groundElevation — optional per-POI terrain fallback, overriding the city's
  */
 export const CITY_POIS = {
+  rasuwagadhi: {
+    name: 'Rasuwagadhi',
+    // Valley floor at the border crossing; the corridor loses ~1,200 m over the
+    // ~100 km downstream, so the lower POIs carry their own groundElevation.
+    groundElevation: 1800,
+    viewBounds: { southwest: { lat: 27.89, lng: 85.09 }, northeast: { lat: 28.31, lng: 85.43 } },
+    pois: [
+      { name: 'Rasuwagadhi Border Crossing', lat: 28.2790, lon: 85.3780, alt: 2600, pitch: -30, heading: 195, buildingHeight: 20 },
+      { name: 'Timure', lat: 28.2537, lon: 85.3665, alt: 2000, pitch: -28, heading: 200, buildingHeight: 15, groundElevation: 1900 },
+      { name: 'Syabrubesi', lat: 28.1636, lon: 85.3372, alt: 2400, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 1500 },
+      { name: 'Betrawati', lat: 27.9726, lon: 85.1707, alt: 2600, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 760 },
+      { name: 'Trishuli Bazaar', lat: 27.9167, lon: 85.1500, alt: 2600, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 620 },
+    ],
+  },
   austin: {
     name: 'Austin',
     groundElevation: 150, // meters above WGS84 ellipsoid
@@ -280,7 +295,7 @@ export function flyToPresetLocation(viewer, locationId, options = {}) {
     heading: poi.heading || 0,
     buildingHeight: poi.buildingHeight || 30,
     buildingBounds: poi.buildingBounds || null,
-    groundElevation: city.groundElevation || 0,
+    groundElevation: poi.groundElevation ?? city.groundElevation ?? 0,
     ...options,
   });
 }
@@ -299,7 +314,7 @@ export function flyToPOI(viewer, cityId, poiIndex, options = {}) {
     heading: poi.heading || 0,
     buildingHeight: poi.buildingHeight || 30,
     buildingBounds: poi.buildingBounds || null,
-    groundElevation: city.groundElevation || 0,
+    groundElevation: poi.groundElevation ?? city.groundElevation ?? 0,
     ...options,
   });
 }
