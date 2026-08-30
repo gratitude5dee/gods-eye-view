@@ -115,6 +115,12 @@ export function validateRobotFrame(frame, { nowMs = Date.now() } = {}) {
     if (!finiteOrNull(gait.cadenceHz) || !finiteOrNull(gait.strideM)) {
       return { ok: false, error: 'gait cadence/stride must be finite or null' };
     }
+    // Optional stride phase in radians (the sim2sim exporter forwards the
+    // policy's own gait clock). Senders that omit it still validate; the
+    // renderer then integrates cadence locally.
+    if (!finiteOrNull(gait.phase)) {
+      return { ok: false, error: 'gait.phase must be finite or null' };
+    }
   }
 
   const vel = frame.vel;
