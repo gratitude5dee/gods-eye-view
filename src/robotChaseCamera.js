@@ -23,7 +23,10 @@ export const ROBOT_CHASE_DEFAULTS = Object.freeze({
   minRangeM: 2,
   maxRangeM: 40,
   pitchDeg: -15,
-  eyeHeightM: 2.5,
+  // Anchor height above the robot's feet. lookAt() centers the anchor on
+  // screen, so the robot renders ~this far below center: keep it low enough
+  // that the billboard stays clear of the bottom-center dock UI.
+  eyeHeightM: 1.0,
   yawSlewDps: 60,
   groundClearanceM: 1.2,
 });
