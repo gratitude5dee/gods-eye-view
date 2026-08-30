@@ -1,0 +1,23 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "khumbu-ebc",
+    "name": "Khumbu Trail — Lukla to Everest Base Camp",
+    "note": "Waypoint polyline along the classic EBC trek. Coordinates are [lon, lat, orthometric elevation m].",
+    "waypoints": [
+      "Lukla", "Namche Bazaar", "Tengboche", "Dingboche", "Lobuche", "Gorak Shep", "Everest Base Camp"
+    ]
+  },
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [86.7314, 27.6869, 2860],
+      [86.7140, 27.8069, 3440],
+      [86.7644, 27.8361, 3867],
+      [86.8300, 27.8925, 4410],
+      [86.8100, 27.9500, 4940],
+      [86.8285, 27.9819, 5164],
+      [86.8528, 28.0026, 5364]
+    ]
+  }
+}

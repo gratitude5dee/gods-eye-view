@@ -1606,6 +1606,7 @@ its criteria cannot be silently ignored.
 | Dams ▰ | OpenInfraMap/OSM extract (bundled) | `src/data/localLayers.js` | — | static |
 | Submarine Cables ◠ | TeleGeography public map (bundled) | `src/data/telegeographySubmarineCables.js` | — | static |
 | FIRMS Active Fires ▲ | NASA FIRMS live (VIIRS ×3 NRT, trailing 24h) | `src/data/firmsHeatmap.js` | `/api/firms` (`FIRMS_MAP_KEY`) | 10 min (proxy TTL 30 min) |
+| Ground Robots 🤖 | Robot telemetry relay (synthetic / bridge providers; SIMULATED / VIRTUAL TRANSPOSITION provenance) | `src/data/groundRobots.js` | `/api/robot/telemetry` + `/api/robot/stream` (SSE) | 1s poll + live SSE |
 
 `src/data/militaryAwareness.js` remains registered internally as the Contacts
 coordinator, but it is not a user-visible Data Layers entry. Its visible entry

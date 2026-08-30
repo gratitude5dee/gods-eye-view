@@ -70,6 +70,7 @@ import radioLayer, {
 } from './data/radio.js';
 import bikeshareLayer from './data/bikeshare.js';
 import aisLiveVesselsLayer from './data/aisLiveVessels.js';
+import groundRobotsLayer, { ROBOT_CHASE_REQUEST_EVENT } from './data/groundRobots.js';
 import militaryAwarenessLayer from './data/militaryAwareness.js';
 import militaryInstallationsLayer from './data/militaryInstallations.js';
 import rocketLaunchesLayer from './data/rocketLaunches.js';
@@ -2200,6 +2201,7 @@ export class StyleManager {
     this._removeCctvRequestFocusListener = null;
     this._worldRequestFocusHandler = null;
     this._removeWorldRequestFocusListener = null;
+    this._robotChaseRequestHandler = null;
     this._removeNavigationAuthorityListener = null;
     this._navigationOwnerChangedRemover = null;
     this._navigationGeneration = 0;
@@ -2606,7 +2608,7 @@ export class StyleManager {
 
     // Initialize detection overlay BEFORE style stages so the composite
     // stage is first in the post-process pipeline
-    initDetection(viewer, [trafficLayer, flightsLayer, militaryFlightsLayer, satellitesLayer, cctvLayer, bikeshareLayer, aisLiveVesselsLayer], (modeLabel) => {
+    initDetection(viewer, [trafficLayer, flightsLayer, militaryFlightsLayer, satellitesLayer, cctvLayer, bikeshareLayer, aisLiveVesselsLayer, groundRobotsLayer], (modeLabel) => {
       this._updateDetectionButton(modeLabel);
     });
     initTrackedReadout(viewer);
@@ -2741,6 +2743,12 @@ export class StyleManager {
       window,
       this._worldRequestFocusHandler,
     );
+    this._robotChaseRequestHandler = (event) => {
+      const robotId = event?.detail?.robotId;
+      if (!robotId || this._disposed) return;
+      this.runImmediateNavigation('robot', () => groundRobotsLayer.engageChaseCamera(robotId));
+    };
+    window.addEventListener(ROBOT_CHASE_REQUEST_EVENT, this._robotChaseRequestHandler);
     this._navigationOwnerChangedRemover = viewer.trackedEntityChanged.addEventListener((entity) => {
       if (entity && !this._disposed) this._stampNavigation({ cancelPendingSelection: false });
     });
@@ -2833,6 +2841,7 @@ export class StyleManager {
     }
     try { satellitesLayer.stopTracking?.({ origin: trackingOrigin }); } catch { /* best-effort release */ }
     try { rocketLaunchesLayer.releaseCameraOwnership?.(); } catch { /* best-effort release */ }
+    try { groundRobotsLayer.releaseCameraOwnership?.(); } catch { /* best-effort release */ }
     this.viewer.trackedEntity = undefined;
     interruptCameraMotion('explicit-navigation');
     this._stopOrbit();
@@ -3349,6 +3358,8 @@ export class StyleManager {
           this._locationSearch.classList.remove('expanded');
           this._locationSearch.value = '';
           this._locationSearch.blur();
+        } else if (groundRobotsLayer.isChaseCameraActive?.()) {
+          this._releaseFollowCamera();
         }
       }
       if (e.key.toLowerCase() === 'h') {
@@ -9705,6 +9716,7 @@ export class StyleManager {
     }
     try { satellitesLayer.stopTracking?.({ origin: 'tool' }); } catch { /* best-effort release */ }
     try { rocketLaunchesLayer.releaseCameraOwnership?.(); } catch { /* best-effort release */ }
+    try { groundRobotsLayer.releaseCameraOwnership?.(); } catch { /* best-effort release */ }
     this.viewer.trackedEntity = undefined;
     this.viewer.camera.cancelFlight();
     this.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
@@ -10145,6 +10157,10 @@ export class StyleManager {
     this._cctvRequestFocusHandler = null;
     this._removeWorldRequestFocusListener?.();
     this._removeWorldRequestFocusListener = null;
+    if (this._robotChaseRequestHandler) {
+      window.removeEventListener(ROBOT_CHASE_REQUEST_EVENT, this._robotChaseRequestHandler);
+      this._robotChaseRequestHandler = null;
+    }
     this._worldRequestFocusHandler = null;
     this._navigationOwnerChangedRemover?.();
     this._navigationOwnerChangedRemover = null;

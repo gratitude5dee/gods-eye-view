@@ -136,6 +136,7 @@ export function resolveTier(obj) {
   if (t === 'SEA') return 'sea';
   if (t === 'SAT') return 'space';
   if (t === 'VEH') return 'vehicle';
+  if (t === 'GROUND') return 'ground';
   return 'civil';
 }
 
