@@ -774,12 +774,13 @@ const groundRobotsLayer = {
   },
 
   /**
-   * Engage the third-person chase camera on a robot. Camera motion itself is
+   * Engage the chase camera on a robot. Camera motion itself is
    * owned by robotChaseCamera; ui.js tears it down via releaseCameraOwnership.
    * @param {string} [robotId] - Defaults to the selected robot.
+   * @param {{firstPerson?: boolean}} [options] - Camera mode, passed through.
    * @returns {boolean} Whether the chase engaged.
    */
-  engageChaseCamera(robotId = null) {
+  engageChaseCamera(robotId = null, options = {}) {
     const id = robotId || state.selectedId;
     const record = id ? state.robots.get(id) : null;
     if (!record || !state.chaseCamera) return false;
@@ -792,7 +793,7 @@ const groundRobotsLayer = {
         headingDeg: target.lastPose?.headingDeg,
         groundHeightM: target.groundHeightM,
       };
-    });
+    }, options);
     return true;
   },
 

@@ -5,7 +5,8 @@ Drop an [ABot-Recon](https://github.com/gratitude5dee/ABot-Recon) export here:
 | File | Written by | Used for |
 | --- | --- | --- |
 | `reconstruction.ply` | `scripts/export_reconstruction_ply.py --output` | the point cloud (`binary_little_endian`, `float x/y/z` + `uchar red/green/blue`) |
-| `camera_poses.npy` | `demo.py --output-dir` | the replayed trajectory (`[N,4,4]` camera-to-world) |
+| `camera_poses.npy` | `demo.py --output-dir` (or `--poses-output` for metric scale) | the replayed trajectory (`[N,4,4]` camera-to-world) |
+| `frames/000000.jpg`… | the recorder, one JPEG per pose (frame `k` ↔ pose `k`) | the walkthrough's CCTV panel (recorded head-cam footage) |
 
 Neither file is committed: they are session artifacts, sized in tens to
 hundreds of megabytes. Without them the DISASTER RECON pill reports
@@ -21,9 +22,19 @@ python scripts/export_reconstruction_ply.py \
   --colors outputs/g1/colors.pt --metadata outputs/g1/metadata.json \
   --output outputs/g1/reconstruction.ply \
   --bev-output outputs/g1/trajectory_bev.png \
-  --point-stride 4 --max-points 2000000
-cp outputs/g1/reconstruction.ply outputs/g1/camera_poses.npy <gods-eye-view>/public/recon/
+  --point-stride 4 --max-points 2000000 \
+  --metric-scale <scale> --poses-output outputs/g1/camera_poses_metric.npy
+cp outputs/g1/reconstruction.ply <gods-eye-view>/public/recon/
+cp outputs/g1/camera_poses_metric.npy <gods-eye-view>/public/recon/camera_poses.npy
 ```
+
+`--metric-scale` rescales SLAM units to meters; estimate it with
+`scripts/estimate_metric_scale.py` (dominant floor plane vs. the known
+head-camera height). For the CCTV panel, copy the source JPEG the recon
+consumed for each pose into `frames/`, named by pose index
+(`000000.jpg` …): if `demo.py` ran with a frame stride, pose `k` came from
+source frame `k × stride`. `config/recon/g1-anchor.json` carries the panel's
+`cctv.frameIntervalS` (capture seconds between exported frames).
 
 A reconstruction is metric but ungeoreferenced — its origin is the first
 camera — so `config/recon/g1-anchor.json` says where on Earth to put it

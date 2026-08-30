@@ -13,5 +13,6 @@ output/
 public/recon/*.ply
 public/recon/*.npy
 public/recon/*.png
+public/recon/frames/
 .vercel
 .env.local

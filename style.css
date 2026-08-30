@@ -1918,7 +1918,8 @@ body.ui-clean-view #scene-runtime.active {
 
 #top-center-actions #robot-demo-btn,
 #top-center-actions #recon-demo-btn,
-#top-center-actions #recon-basecamp-btn {
+#top-center-actions #recon-basecamp-btn,
+#top-center-actions #recon-walkthrough-btn {
   width: auto;
   padding: 0 14px;
   border-radius: 18px;
@@ -1932,7 +1933,8 @@ body.ui-clean-view #scene-runtime.active {
 }
 
 #top-center-actions #robot-demo-btn.active,
-#top-center-actions #recon-demo-btn.active {
+#top-center-actions #recon-demo-btn.active,
+#top-center-actions #recon-walkthrough-btn.active {
   color: #ffb04d;
   border-color: rgba(255, 176, 77, 0.45);
 }
@@ -2042,6 +2044,101 @@ body:has(#robot-demo-panel:not([hidden])) #recon-demo-panel:not([hidden]) {
 
 body.ui-clean-view #robot-demo-panel,
 body.ui-clean-view #recon-demo-panel {
+  display: none;
+}
+
+/* CCTV monitor for the recorded G1 head-camera frames (walkthrough). Styled
+   like an operator wall feed, but badged RECORDED — never LIVE. */
+#recon-cctv-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 110;
+  width: 336px;
+  padding: 10px 12px 8px;
+  background: rgba(8, 10, 12, 0.92);
+  border: 1px solid rgba(126, 240, 165, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+}
+
+.recon-cctv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.recon-cctv-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #e8f5ec;
+}
+
+.recon-cctv-chip {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #ffb04d;
+  border: 1px solid rgba(255, 176, 77, 0.45);
+}
+
+.recon-cctv-view {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 848 / 480;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(126, 240, 165, 0.04) 0 1px, transparent 1px 3px),
+    #05070a;
+  border: 1px solid rgba(126, 240, 165, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.recon-cctv-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.65) contrast(1.08);
+}
+
+.recon-cctv-status {
+  position: absolute;
+  left: 8px;
+  bottom: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #7ef0a5;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+}
+
+#recon-cctv-panel.connecting .recon-cctv-status {
+  color: #ffb04d;
+  animation: recon-cctv-blink 0.8s steps(2) infinite;
+}
+
+@keyframes recon-cctv-blink {
+  50% { opacity: 0.25; }
+}
+
+.recon-cctv-footer {
+  margin-top: 6px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+}
+
+body.ui-clean-view #recon-cctv-panel {
   display: none;
 }
 

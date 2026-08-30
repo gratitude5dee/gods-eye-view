@@ -2747,7 +2747,11 @@ export class StyleManager {
     this._robotChaseRequestHandler = (event) => {
       const robotId = event?.detail?.robotId;
       if (!robotId || this._disposed) return;
-      this.runImmediateNavigation('robot', () => groundRobotsLayer.engageChaseCamera(robotId));
+      const firstPerson = event?.detail?.view === 'first-person';
+      this.runImmediateNavigation(
+        'robot',
+        () => groundRobotsLayer.engageChaseCamera(robotId, { firstPerson }),
+      );
     };
     window.addEventListener(ROBOT_CHASE_REQUEST_EVENT, this._robotChaseRequestHandler);
     const demoHooks = {

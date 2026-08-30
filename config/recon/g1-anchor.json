@@ -7,5 +7,9 @@
   "headingDeg": 20,
   "elevM": 0,
   "plyUrl": "/recon/reconstruction.ply",
-  "posesUrl": "/recon/camera_poses.npy"
+  "posesUrl": "/recon/camera_poses.npy",
+  "cctv": {
+    "framesBaseUrl": "/recon/frames",
+    "frameIntervalS": 0.6
+  }
 }
