@@ -1,0 +1,11 @@
+{
+  "id": "g1-recon-khumbu",
+  "name": "G1 disaster-recon walk — Khumbu staging area",
+  "note": "Where an ABot-Recon reconstruction is placed on the globe. A reconstruction is metric but ungeoreferenced (its origin is the first camera), so this anchor is editorial: lat/lon of the clip's first frame, headingDeg the compass bearing that first camera looked along, elevM a ground-relative offset (the slam-local datum snaps it onto terrain). Replays stay SIMULATED - VIRTUAL TRANSPOSITION.",
+  "lat": 27.9819,
+  "lon": 86.8285,
+  "headingDeg": 20,
+  "elevM": 0,
+  "plyUrl": "/recon/reconstruction.ply",
+  "posesUrl": "/recon/camera_poses.npy"
+}

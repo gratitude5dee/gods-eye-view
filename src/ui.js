@@ -71,7 +71,7 @@ import radioLayer, {
 import bikeshareLayer from './data/bikeshare.js';
 import aisLiveVesselsLayer from './data/aisLiveVessels.js';
 import groundRobotsLayer, { ROBOT_CHASE_REQUEST_EVENT } from './data/groundRobots.js';
-import { initRobotDemo } from './robotDemo.js';
+import { initReconDemo, initRobotDemo } from './robotDemo.js';
 import militaryAwarenessLayer from './data/militaryAwareness.js';
 import militaryInstallationsLayer from './data/militaryInstallations.js';
 import rocketLaunchesLayer from './data/rocketLaunches.js';
@@ -2750,14 +2750,16 @@ export class StyleManager {
       this.runImmediateNavigation('robot', () => groundRobotsLayer.engageChaseCamera(robotId));
     };
     window.addEventListener(ROBOT_CHASE_REQUEST_EVENT, this._robotChaseRequestHandler);
-    this._robotDemo = initRobotDemo({
+    const demoHooks = {
       setLayerEnabled: (layerId, enabled) => Promise.resolve(
         this._dataManager?.setEnabled(layerId, enabled, { origin: 'user' }),
       ),
       releaseChase: () => {
         if (groundRobotsLayer.isChaseCameraActive?.()) this._releaseFollowCamera();
       },
-    });
+    };
+    this._robotDemo = initRobotDemo(demoHooks);
+    this._reconDemo = initReconDemo(demoHooks);
     this._navigationOwnerChangedRemover = viewer.trackedEntityChanged.addEventListener((entity) => {
       if (entity && !this._disposed) this._stampNavigation({ cancelPendingSelection: false });
     });
@@ -10172,6 +10174,8 @@ export class StyleManager {
     }
     this._robotDemo?.destroy();
     this._robotDemo = null;
+    this._reconDemo?.destroy();
+    this._reconDemo = null;
     this._worldRequestFocusHandler = null;
     this._navigationOwnerChangedRemover?.();
     this._navigationOwnerChangedRemover = null;

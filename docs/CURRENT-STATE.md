@@ -2,6 +2,27 @@
 
 Updated: August 30, 2026
 
+> **2026-08-30 — ABot-Recon reconstruction replay (▶ DISASTER RECON)**
+> (`src/data/plyPointCloud.js`, `src/data/npyPoses.js`,
+> `src/data/reconstructionAnchor.js`, `src/data/reconstructionCloud.js`,
+> `src/data/reconstructionReplay.js`, pill in `src/robotDemo.js`). A second
+> top-center pill loads a real reconstruction exported from a G1 head-camera
+> clip: the browser parses the exporter's `binary_little_endian`
+> `reconstruction.ply` (skipping its `edge` element) and `camera_poses.npy`
+> directly from `public/recon/` — the relay's `/api/robot/ingest` caps a batch at
+> 256 KB — decimates to a 220k `PointPrimitiveCollection` budget, and rotates
+> both cloud and trajectory from ABot-Recon's `+x` right / `+y` **down** / `+z`
+> forward frame into the anchor's ENU frame. The marker then walks
+> `camera_poses.npy` through `ingestLocalFrames()` while the cloud reveals the
+> matching prefix, so it grows as it walks.
+>
+> A reconstruction is metric but has no georeference — its origin is the first
+> camera — so `config/recon/g1-anchor.json` supplies lat/lon/heading and the
+> replay keeps `SIMULATED · VIRTUAL TRANSPOSITION` on the `slam-local` datum:
+> recorded geometry, chosen place, never live hardware. The assets are not
+> committed (see `public/recon/README.md`); without them the pill reports
+> `NO RECONSTRUCTION PUBLISHED` and changes nothing else.
+
 > **2026-08-30 — in-browser G1 demo mode + relay-less degraded state**
 > (`src/robotDemo.js`, `src/data/robotSyntheticWalker.js`,
 > `src/data/groundRobots.js`, wired in `src/ui.js`). A **▶ G1 DEMO** pill in
@@ -1627,6 +1648,7 @@ its criteria cannot be silently ignored.
 | Submarine Cables ◠ | TeleGeography public map (bundled) | `src/data/telegeographySubmarineCables.js` | — | static |
 | FIRMS Active Fires ▲ | NASA FIRMS live (VIIRS ×3 NRT, trailing 24h) | `src/data/firmsHeatmap.js` | `/api/firms` (`FIRMS_MAP_KEY`) | 10 min (proxy TTL 30 min) |
 | Ground Robots 🤖 | Robot telemetry relay (synthetic / bridge providers; SIMULATED / VIRTUAL TRANSPOSITION provenance) | `src/data/groundRobots.js` | `/api/robot/telemetry` + `/api/robot/stream` (SSE) | 1s poll + live SSE |
+| Reconstruction Cloud 🧿 | ABot-Recon point cloud from a recorded G1 clip (SIMULATED / VIRTUAL TRANSPOSITION provenance) | `src/data/reconstructionCloud.js` | `public/recon/reconstruction.ply` + `camera_poses.npy` (static, uncommitted) | on demand |
 
 `src/data/militaryAwareness.js` remains registered internally as the Contacts
 coordinator, but it is not a user-visible Data Layers entry. Its visible entry
