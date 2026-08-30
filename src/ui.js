@@ -2761,6 +2761,9 @@ export class StyleManager {
       releaseChase: () => {
         if (groundRobotsLayer.isChaseCameraActive?.()) this._releaseFollowCamera();
       },
+      cancelNavigation: () => {
+        if (!this._disposed) this.viewer.camera.cancelFlight();
+      },
     };
     this._robotDemo = initRobotDemo(demoHooks);
     this._reconDemo = initReconDemo(demoHooks);
