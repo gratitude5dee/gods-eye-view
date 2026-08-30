@@ -20,8 +20,11 @@ export const CITY_POIS = {
     groundElevation: 1800,
     viewBounds: { southwest: { lat: 27.89, lng: 85.09 }, northeast: { lat: 28.31, lng: 85.43 } },
     pois: [
-      { name: 'Rasuwagadhi Border Crossing', lat: 28.2790, lon: 85.3780, alt: 2600, pitch: -30, heading: 195, buildingHeight: 20 },
-      { name: 'Timure', lat: 28.2537, lon: 85.3665, alt: 2000, pitch: -28, heading: 200, buildingHeight: 15, groundElevation: 1900 },
+      // Steep pitch on purpose: `alt` is a RANGE, so a shallow one stands the camera off
+      // ~2.2 km up-valley into 3,200 m ridges and buries the frame. -60° keeps the standoff
+      // inside the gorge.
+      { name: 'Rasuwagadhi Border Crossing', lat: 28.2790, lon: 85.3780, alt: 2600, pitch: -60, heading: 195, buildingHeight: 20 },
+      { name: 'Timure', lat: 28.2537, lon: 85.3665, alt: 2000, pitch: -42, heading: 200, buildingHeight: 15, groundElevation: 1900 },
       { name: 'Syabrubesi', lat: 28.1636, lon: 85.3372, alt: 2400, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 1500 },
       { name: 'Betrawati', lat: 27.9726, lon: 85.1707, alt: 2600, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 760 },
       { name: 'Trishuli Bazaar', lat: 27.9167, lon: 85.1500, alt: 2600, pitch: -26, heading: 200, buildingHeight: 15, groundElevation: 620 },
