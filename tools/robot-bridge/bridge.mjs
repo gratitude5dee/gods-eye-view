@@ -74,8 +74,22 @@ async function main() {
   let inFlight = false;
   let sent = 0;
 
-  async function flush() {
+  /** Backoff sleep, clamped to whatever drain budget remains at sleep time. */
+  async function backoffSleep(ms, deadline) {
+    const budget = deadline === undefined ? ms : Math.min(ms, deadline - Date.now());
+    if (budget <= 0) return;
+    await new Promise((r) => setTimeout(r, budget));
+  }
+
+  /**
+   * @param {number} [deadline] - Epoch ms after which this flush must not
+   *   wait: the POST is aborted at the deadline and backoff sleeps are
+   *   skipped. Used by shutdown so draining cannot outlive its budget.
+   */
+  async function flush(deadline) {
     if (inFlight || pending.length === 0 || backoffMs < 0) return;
+    const remainingMs = deadline === undefined ? Infinity : deadline - Date.now();
+    if (remainingMs <= 0) return;
     const batch = pending.slice(0, MAX_FRAMES_PER_BATCH);
     inFlight = true;
     try {
@@ -86,6 +100,7 @@ async function main() {
           'X-GEV-Robot-Token': token,
         },
         body: JSON.stringify({ frames: batch }),
+        signal: Number.isFinite(remainingMs) ? AbortSignal.timeout(remainingMs) : undefined,
       });
       if (res.ok) {
         pending = pending.slice(batch.length);
@@ -98,12 +113,12 @@ async function main() {
       } else {
         backoffMs = Math.min(MAX_BACKOFF_MS, backoffMs ? backoffMs * 2 : 1000);
         console.error(`ingest failed (${res.status}); backing off ${backoffMs} ms`);
-        await new Promise((r) => setTimeout(r, backoffMs));
+        await backoffSleep(backoffMs, deadline);
       }
     } catch (err) {
       backoffMs = Math.min(MAX_BACKOFF_MS, backoffMs ? backoffMs * 2 : 1000);
       console.error(`ingest unreachable (${err?.message}); backing off ${backoffMs} ms`);
-      await new Promise((r) => setTimeout(r, backoffMs));
+      await backoffSleep(backoffMs, deadline);
     } finally {
       inFlight = false;
     }
@@ -132,7 +147,7 @@ async function main() {
     // pending is empty or the deadline passes.
     const deadline = Date.now() + SHUTDOWN_DRAIN_MS;
     while ((inFlight || pending.length > 0) && Date.now() < deadline) {
-      await flush();
+      await flush(deadline);
       if (inFlight || pending.length > 0) await new Promise((r) => setTimeout(r, 50));
     }
     if (pending.length > 0) {
