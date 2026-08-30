@@ -27,6 +27,13 @@ import {
   ROBOT_FRAME_VERSION,
 } from './robotFrame.js';
 
+// The stream is decoded to UTF-16 strings, so `length` is not the wire size: a
+// record of CJK labels or degree signs costs two to four bytes per unit. The cap
+// is a byte budget, so every measurement here is a byte measurement.
+const utf8Bytes = typeof Buffer !== 'undefined'
+  ? (text) => Buffer.byteLength(text, 'utf8')
+  : (text) => new TextEncoder().encode(text).length;
+
 /** Newline-delimited JSON reader with a bounded tail buffer. */
 export function createLineReader({ maxLineBytes = 64 * 1024 } = {}) {
   let tail = '';
@@ -47,14 +54,15 @@ export function createLineReader({ maxLineBytes = 64 * 1024 } = {}) {
       const lines = [];
       for (const part of parts) {
         if (discarding) {
-          overflow += part.length;
+          overflow += utf8Bytes(part);
           discarding = false;
           continue;
         }
         // A complete line over the cap is dropped whole rather than forwarded:
         // one oversized record must not get a whole ingest batch rejected.
-        if (part.length > maxLineBytes) {
-          overflow += part.length;
+        const bytes = utf8Bytes(part);
+        if (bytes > maxLineBytes) {
+          overflow += bytes;
           continue;
         }
         const trimmed = part.trim();
@@ -62,8 +70,9 @@ export function createLineReader({ maxLineBytes = 64 * 1024 } = {}) {
       }
       // A sender that never emits a newline must not grow the buffer without
       // bound; drop what is buffered and resynchronize on the next newline.
-      if (tail.length > maxLineBytes) {
-        overflow += tail.length;
+      const tailBytes = utf8Bytes(tail);
+      if (tailBytes > maxLineBytes) {
+        overflow += tailBytes;
         tail = '';
         discarding = true;
       }
