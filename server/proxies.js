@@ -4171,6 +4171,27 @@ async function getCctvSources() {
 }
 
 /**
+ * Enforce the global catalog cap by priority instead of insertion order, so an
+ * explicitly configured pack can never be squeezed out by a bundled one, and
+ * the bundled Nepal pack (the only coverage in its region) outlives a live
+ * city pack that a cut merely thins. Original order is kept within a priority
+ * tier, and untouched when the catalog fits.
+ *
+ * @param {Array<object>} sources Deduplicated normalized sources.
+ * @param {number} maxCount Global cap.
+ * @param {(id: string) => number} priorityOf Lower survives first.
+ * @returns {Array<object>} At most maxCount sources.
+ */
+export function applyCctvCatalogCap(sources, maxCount, priorityOf) {
+  if (sources.length <= maxCount) return sources;
+  return sources
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => (priorityOf(a.item.id) - priorityOf(b.item.id)) || (a.index - b.index))
+    .slice(0, maxCount)
+    .map((entry) => entry.item);
+}
+
+/**
  * Assemble and cache the merged CCTV source list from file/env + live packs.
  * Always resolves (loaders self-catch to []); on a fully-empty refresh with a
  * good prior catalog it serves stale rather than blanking the CCTV layer.
@@ -4202,12 +4223,11 @@ async function refreshCctvSources() {
     fromCaltrans = caltransResult.status === 'fulfilled' ? caltransResult.value : [];
     fromTfl = tflResult.status === 'fulfilled' ? tflResult.value : [];
   }
+  // Bundled regional pack; an Austin-only catalog stays Austin-only.
+  const nepalPack = forceAustin ? [] : loadNepalViewpointPack();
   // Live sources first so file/env overrides win on duplicate IDs (Map last-write).
-  // The Nepal pack leads because the global cap truncates from the tail, and it is
-  // the only coverage in its region — losing it would blank the layer over Nepal,
-  // while the same cut off a 250-camera city pack only thins it.
   const merged = [
-    ...loadNepalViewpointPack(), ...fromAustin, ...fromCaltrans, ...fromTfl, ...fromFile, ...fromEnv,
+    ...fromAustin, ...fromCaltrans, ...fromTfl, ...nepalPack, ...fromFile, ...fromEnv,
   ];
 
   // Deduplicate by camera ID (last-write wins because of Map.set)
@@ -4223,9 +4243,17 @@ async function refreshCctvSources() {
   const maxRaw = Number(process.env.CCTV_MAX_SOURCES || DEFAULT_CCTV_MAX_SOURCES);
   const maxCount = Number.isFinite(maxRaw) ? Math.max(8, Math.min(1200, Math.floor(maxRaw))) : DEFAULT_CCTV_MAX_SOURCES;
   if (mergedSources.length > maxCount) {
-    console.warn(`[CCTV] source catalog ${mergedSources.length} exceeds cap ${maxCount}; keeping the first ${maxCount} (raise CCTV_MAX_SOURCES or lower a per-pack cap to change which).`);
+    console.warn(`[CCTV] source catalog ${mergedSources.length} exceeds cap ${maxCount}; keeping the ${maxCount} highest-priority (raise CCTV_MAX_SOURCES or lower a per-pack cap to change which).`);
   }
-  const capped = mergedSources.length > maxCount ? mergedSources.slice(0, maxCount) : mergedSources;
+  const configuredIds = new Set(
+    [...fromFile, ...fromEnv].map((item) => String(item?.id || '').trim()).filter(Boolean),
+  );
+  const nepalIds = new Set(nepalPack.map((item) => String(item?.id || '').trim()));
+  const capped = applyCctvCatalogCap(mergedSources, maxCount, (id) => {
+    if (configuredIds.has(id)) return 0;
+    if (nepalIds.has(id)) return 1;
+    return 2;
+  });
   if (capped.length > 0 || _cctvSourceCache.length === 0) {
     _cctvSourceCache = capped;
   } else {

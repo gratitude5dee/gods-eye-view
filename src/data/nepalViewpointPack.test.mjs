@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadNepalViewpointPack } from '../../server/proxies.js';
+import { loadNepalViewpointPack, applyCctvCatalogCap } from '../../server/proxies.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PACK_FILE = path.join(ROOT, 'config/cctv_sources.nepal.json');
@@ -48,6 +48,31 @@ test('both road runs are represented', () => {
   const pack = loadNepalViewpointPack();
   assert.ok(pack.some((entry) => entry.cityId === 'kathmandu'), 'Ring Road run missing');
   assert.ok(pack.some((entry) => entry.cityId === 'rasuwagadhi'), 'flood-corridor run missing');
+});
+
+test('the catalog cap keeps configured cameras over Nepal, and Nepal over live packs', () => {
+  const configured = [{ id: 'my-cam-1' }, { id: 'my-cam-2' }];
+  const nepal = [{ id: 'nepal-ring-001' }, { id: 'nepal-corridor-001' }];
+  const live = [{ id: 'austin-1' }, { id: 'austin-2' }, { id: 'london-1' }];
+  const priorityOf = (id) => {
+    if (id.startsWith('my-cam')) return 0;
+    if (id.startsWith('nepal-')) return 1;
+    return 2;
+  };
+  // Live packs lead insertion order, as in refreshCctvSources.
+  const catalog = [...live, ...nepal, ...configured];
+
+  const cappedTight = applyCctvCatalogCap(catalog, 3, priorityOf);
+  assert.deepEqual(cappedTight.map((s) => s.id), ['my-cam-1', 'my-cam-2', 'nepal-ring-001']);
+
+  const cappedLoose = applyCctvCatalogCap(catalog, 5, priorityOf);
+  assert.deepEqual(
+    cappedLoose.map((s) => s.id),
+    ['my-cam-1', 'my-cam-2', 'nepal-ring-001', 'nepal-corridor-001', 'austin-1'],
+  );
+
+  // An uncapped catalog keeps its original order untouched.
+  assert.deepEqual(applyCctvCatalogCap(catalog, 10, priorityOf), catalog);
 });
 
 test('CCTV_NEPAL_ENABLED=0 removes the pack without touching the live packs', () => {
