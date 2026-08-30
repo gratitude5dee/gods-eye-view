@@ -64,9 +64,12 @@ export function solarPositionDeg({ dateMs, latitude, longitude }) {
   );
   const zenith = Math.acos(cosZenith);
   const elevationDeg = 90 - zenith / DEG;
-  const sinAzimuth = -Math.sin(hourAngle * DEG) * Math.cos(declination);
+  // Both components carry the same 1/sin(zenith) normalization, so atan2 reads
+  // a true angle rather than a stretched one.
+  const sinZenith = Math.max(1e-6, Math.sin(zenith));
+  const sinAzimuth = -Math.sin(hourAngle * DEG) * Math.cos(declination) / sinZenith;
   const cosAzimuth = (Math.sin(declination) - Math.sin(latitudeRad) * cosZenith)
-    / Math.max(1e-6, Math.cos(latitudeRad) * Math.sin(zenith));
+    / (Math.max(1e-6, Math.cos(latitudeRad)) * sinZenith);
   const azimuthDeg = normalizeDeg(Math.atan2(sinAzimuth, clamp(cosAzimuth, -1, 1)) / DEG);
   return { elevationDeg, azimuthDeg };
 }

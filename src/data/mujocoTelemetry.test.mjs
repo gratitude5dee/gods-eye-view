@@ -121,8 +121,17 @@ test('the line reader emits only complete lines and bounds a newline-less sender
   assert.deepEqual(reader.push('\n \n').lines, [], 'blank lines are not records');
   const flood = reader.push('x'.repeat(64));
   assert.ok(flood.overflow > 0);
-  assert.deepEqual(reader.push('junk\n{"c":3}\n').lines, ['junk', '{"c":3}'],
-    'the reader resynchronizes on the next newline');
+  const resync = reader.push('tail-of-flood\n{"c":3}\n');
+  assert.deepEqual(resync.lines, ['{"c":3}'],
+    'the rest of an over-long line is dropped, not read as a record');
+  assert.equal(resync.overflow, 'tail-of-flood'.length);
+});
+
+test('a complete over-long line is dropped whole and later lines survive', () => {
+  const reader = createLineReader({ maxLineBytes: 16 });
+  const pushed = reader.push(`{"a":1}\n${'y'.repeat(40)}\n{"b":2}\n`);
+  assert.deepEqual(pushed.lines, ['{"a":1}', '{"b":2}']);
+  assert.equal(pushed.overflow, 40, 'only the oversized logical line is charged');
 });
 
 // ---------------------------------------------------------------------------

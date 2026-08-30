@@ -33,6 +33,28 @@ test('solar position tracks the sun through a day at a known site', () => {
   assert.ok(morning.elevationDeg > 0 && morning.elevationDeg < noon.elevationDeg);
 });
 
+test('azimuth and elevation agree on one declination across the day', () => {
+  // Inverting the spherical-trig relation sin(dec) = sin(lat)sin(elev)
+  // + cos(lat)cos(elev)cos(azimuth) must recover the solstice declination at
+  // every hour. A stretched azimuth (mismatched sin/cos normalization) breaks
+  // this away from sunrise and sunset.
+  const DEG = Math.PI / 180;
+  const latitude = 30.2672;
+  for (const hourUtc of [13, 15, 18, 21, 23]) {
+    const { elevationDeg, azimuthDeg } = solarPositionDeg({
+      dateMs: Date.UTC(2025, 5, 21, hourUtc, 0),
+      latitude,
+      longitude: -97.7431,
+    });
+    const declination = Math.asin(
+      Math.sin(latitude * DEG) * Math.sin(elevationDeg * DEG)
+        + Math.cos(latitude * DEG) * Math.cos(elevationDeg * DEG) * Math.cos(azimuthDeg * DEG),
+    ) / DEG;
+    assert.ok(Math.abs(declination - 23.44) < 0.5,
+      `${hourUtc}:00 UTC implies declination ${declination.toFixed(2)}`);
+  }
+});
+
 test('solar position degrades to a flat sun on unusable inputs', () => {
   assert.deepEqual(
     solarPositionDeg({ dateMs: Number.NaN, latitude: 0, longitude: 0 }),

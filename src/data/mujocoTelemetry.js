@@ -30,23 +30,44 @@ import {
 /** Newline-delimited JSON reader with a bounded tail buffer. */
 export function createLineReader({ maxLineBytes = 64 * 1024 } = {}) {
   let tail = '';
+  // Set once a logical line passes the cap: everything up to its terminating
+  // newline belongs to that line and must not be read as a fresh record.
+  let discarding = false;
   return {
     /**
      * @param {string} chunk - Decoded stream chunk.
-     * @returns {{lines: string[], overflow: number}} Complete lines only.
+     * @returns {{lines: string[], overflow: number}} Complete lines only, plus
+     *   the number of bytes dropped from over-long logical lines.
      */
     push(chunk) {
       let overflow = 0;
       tail += chunk;
       const parts = tail.split('\n');
       tail = parts.pop() ?? '';
-      // A sender that never emits a newline must not grow the buffer without
-      // bound; drop the partial line and resynchronize on the next newline.
-      if (tail.length > maxLineBytes) {
-        overflow = tail.length;
-        tail = '';
+      const lines = [];
+      for (const part of parts) {
+        if (discarding) {
+          overflow += part.length;
+          discarding = false;
+          continue;
+        }
+        // A complete line over the cap is dropped whole rather than forwarded:
+        // one oversized record must not get a whole ingest batch rejected.
+        if (part.length > maxLineBytes) {
+          overflow += part.length;
+          continue;
+        }
+        const trimmed = part.trim();
+        if (trimmed) lines.push(trimmed);
       }
-      return { lines: parts.map((line) => line.trim()).filter(Boolean), overflow };
+      // A sender that never emits a newline must not grow the buffer without
+      // bound; drop what is buffered and resynchronize on the next newline.
+      if (tail.length > maxLineBytes) {
+        overflow += tail.length;
+        tail = '';
+        discarding = true;
+      }
+      return { lines, overflow };
     },
   };
 }
