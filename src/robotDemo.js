@@ -27,6 +27,13 @@ import reconAnchor from '../config/recon/g1-anchor.json';
 import { parseRoute } from './data/robotTransposition.js';
 import { createSyntheticWalker } from './data/robotSyntheticWalker.js';
 import { createReconstructionReplay } from './data/reconstructionReplay.js';
+import {
+  WALKTHROUGH_POSE_HZ,
+  cctvFrameUrl,
+  cctvStateAt,
+  cctvTimestamp,
+  walkthroughPhaseAt,
+} from './data/reconWalkthrough.js';
 import groundRobotsLayer, { ROBOT_CHASE_REQUEST_EVENT } from './data/groundRobots.js';
 import reconstructionCloudLayer from './data/reconstructionCloud.js';
 import { provenanceChip } from './data/robotFrame.js';
@@ -268,6 +275,15 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
   baseCampBtn.addEventListener('click', () => { void flyToBaseCamp(); });
   actions.appendChild(baseCampBtn);
 
+  const walkBtn = el('button', 'robot-demo-btn');
+  walkBtn.id = 'recon-walkthrough-btn';
+  walkBtn.type = 'button';
+  walkBtn.title = 'Cinematic walkthrough: flight → third-person → first-person, '
+    + 'with the recorded head-cam in a CCTV panel (RECORDED, not live)';
+  walkBtn.setAttribute('aria-label', 'Start base camp walkthrough');
+  walkBtn.textContent = '▶ WALKTHROUGH';
+  actions.appendChild(walkBtn);
+
   const panel = el('aside', 'robot-demo-panel');
   panel.id = 'recon-demo-panel';
   panel.hidden = true;
@@ -293,17 +309,99 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     `RECORDED RECONSTRUCTION — replayed at ${anchor.name || 'anchor'}`));
   document.body.appendChild(panel);
 
+  // CCTV-style monitor for the frames the reconstruction was built from.
+  // The "connection" is theatre; the badge and footer say what it really is.
+  const cctv = el('aside', 'recon-cctv-panel');
+  cctv.id = 'recon-cctv-panel';
+  cctv.hidden = true;
+  const cctvHeader = el('div', 'recon-cctv-header');
+  cctvHeader.appendChild(el('span', 'recon-cctv-title', 'G1 HEAD CAM'));
+  cctvHeader.appendChild(el('span', 'recon-cctv-chip', 'RECORDED'));
+  cctv.appendChild(cctvHeader);
+  const cctvView = el('div', 'recon-cctv-view');
+  const cctvImg = document.createElement('img');
+  cctvImg.className = 'recon-cctv-frame';
+  cctvImg.alt = 'Recorded G1 head-camera frame';
+  cctvImg.decoding = 'async';
+  cctvImg.hidden = true;
+  cctvView.appendChild(cctvImg);
+  const cctvStatus = el('div', 'recon-cctv-status', 'NO SIGNAL');
+  cctvView.appendChild(cctvStatus);
+  cctv.appendChild(cctvView);
+  cctv.appendChild(el('div', 'recon-cctv-footer',
+    'RECORDED RECONSTRUCTION FOOTAGE — NOT A LIVE FEED'));
+  document.body.appendChild(cctv);
+  const cctvBaseUrl = anchor.cctv?.framesBaseUrl || '/recon/frames';
+  const cctvIntervalS = anchor.cctv?.frameIntervalS;
+  let cctvFramesMissing = false;
+  let cctvShownUrl = null;
+  cctvImg.addEventListener('error', () => {
+    cctvFramesMissing = true;
+    cctvImg.hidden = true;
+    cctvStatus.textContent = 'NO FOOTAGE PUBLISHED';
+    cctv.classList.remove('connected');
+  });
+
   let timer = null;
   let replay = null;
   let frameCount = 0;
   let chaseRequested = false;
   let disposed = false;
   let startGeneration = 0;
+  let walkMode = false;
+  let walkPhase = null;
+  let walkFrameCount = 0;
 
   function showIdle() {
     button.textContent = '▶ DISASTER RECON';
     button.classList.remove('active');
     button.setAttribute('aria-label', 'Start disaster recon replay');
+    walkBtn.textContent = '▶ WALKTHROUGH';
+    walkBtn.classList.remove('active');
+    walkBtn.setAttribute('aria-label', 'Start base camp walkthrough');
+  }
+
+  function applyWalkPhase(next) {
+    if (next === walkPhase) return;
+    walkPhase = next;
+    fields.status.textContent = `WALKTHROUGH — ${next.replace(/-/g, ' ').toUpperCase()}`;
+    if (next === 'flight') {
+      void flyToBaseCamp();
+      return;
+    }
+    groundRobotsLayer.selectById(DEMO_ROBOT_ID);
+    window.dispatchEvent(new CustomEvent(ROBOT_CHASE_REQUEST_EVENT, {
+      detail: { robotId: DEMO_ROBOT_ID, view: next },
+    }));
+  }
+
+  function updateCctv(index, fraction) {
+    const linkState = cctvStateAt(fraction);
+    if (linkState === 'standby') {
+      cctvStatus.textContent = 'STANDBY — NO LINK';
+      cctv.classList.remove('connected', 'connecting');
+      return;
+    }
+    if (linkState === 'connecting') {
+      cctvStatus.textContent = 'CONNECTING TO G1 HEAD CAM…';
+      cctv.classList.add('connecting');
+      cctv.classList.remove('connected');
+      return;
+    }
+    cctv.classList.remove('connecting');
+    if (cctvFramesMissing) return;
+    const url = cctvFrameUrl(index, { frameCount: walkFrameCount, baseUrl: cctvBaseUrl });
+    if (!url) {
+      cctvStatus.textContent = 'NO FOOTAGE PUBLISHED';
+      return;
+    }
+    cctv.classList.add('connected');
+    cctvImg.hidden = false;
+    if (url !== cctvShownUrl) {
+      cctvShownUrl = url;
+      cctvImg.src = url;
+    }
+    cctvStatus.textContent = cctvTimestamp(index, cctvIntervalS);
   }
 
   function tick() {
@@ -318,6 +416,13 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     fields.poses.textContent = `${index + 1} / ${poseCount}`;
     fields.points.textContent = `${layer.setRevealFraction(fraction).toLocaleString()} shown`;
     progressFill.style.width = `${(100 * fraction).toFixed(2)}%`;
+    if (walkMode) {
+      // The chase only has a target once enough replayed frames have landed.
+      if (frameCount >= RECON_CHASE_AFTER_FRAMES || walkPhase !== null) {
+        applyWalkPhase(walkthroughPhaseAt(fraction));
+      }
+      updateCctv(index, fraction);
+    }
     if (!chaseRequested && frameCount >= RECON_CHASE_AFTER_FRAMES) {
       chaseRequested = true;
       groundRobotsLayer.selectById(DEMO_ROBOT_ID);
@@ -331,14 +436,16 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
       clearInterval(timer);
       timer = null;
       fields.status.textContent = 'REPLAY COMPLETE';
+      if (walkMode) cctvStatus.textContent = 'END OF RECORDING';
       showIdle();
     }
   }
 
-  async function start() {
+  async function start({ walkthrough = false } = {}) {
     if (timer || disposed) return;
     const generation = ++startGeneration;
     button.disabled = true;
+    walkBtn.disabled = true;
     panel.hidden = false;
     fields.status.textContent = 'LOADING RECONSTRUCTION';
     let waypoints = [];
@@ -358,12 +465,16 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
       fields.status.textContent = 'NO RECONSTRUCTION PUBLISHED';
       fields.points.textContent = String(error?.message || error).slice(0, 80);
       button.disabled = false;
+      walkBtn.disabled = false;
       showIdle();
       // A refused disable is not worth surfacing, but an unhandled rejection is.
       await Promise.resolve(setLayerEnabled('recon-cloud', false)).catch(() => {});
       return;
     } finally {
-      if (!disposed) button.disabled = false;
+      if (!disposed) {
+        button.disabled = false;
+        walkBtn.disabled = false;
+      }
     }
     if (disposed || generation !== startGeneration || timer) return;
     if (!waypoints.length) {
@@ -388,16 +499,34 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     replay = createReconstructionReplay({
       waypoints,
       id: DEMO_ROBOT_ID,
-      poseHz: RECON_POSE_HZ,
+      poseHz: walkthrough ? WALKTHROUGH_POSE_HZ : RECON_POSE_HZ,
     });
     frameCount = 0;
-    chaseRequested = false;
+    // The walkthrough owns its own camera acts; the ordinary auto-chase
+    // would fight the flight, so it is marked already-requested.
+    chaseRequested = walkthrough;
+    walkMode = walkthrough;
+    walkPhase = null;
+    walkFrameCount = waypoints.length;
+    cctvShownUrl = null;
+    cctvFramesMissing = false;
+    cctvImg.hidden = true;
+    cctv.classList.remove('connected', 'connecting');
+    cctv.hidden = !walkthrough;
+    if (walkthrough) {
+      cctvStatus.textContent = 'STANDBY — NO LINK';
+      applyWalkPhase('flight');
+    }
     layer.setRevealFraction(0);
-    fields.status.textContent = 'REPLAYING';
+    fields.status.textContent = walkthrough ? 'WALKTHROUGH — FLIGHT' : 'REPLAYING';
     timer = setInterval(tick, 1000 / RATE_HZ);
-    button.textContent = '■ STOP RECON';
-    button.classList.add('active');
-    button.setAttribute('aria-label', 'Stop disaster recon replay');
+    const activeBtn = walkthrough ? walkBtn : button;
+    activeBtn.textContent = walkthrough ? '■ STOP WALKTHROUGH' : '■ STOP RECON';
+    activeBtn.classList.add('active');
+    activeBtn.setAttribute(
+      'aria-label',
+      walkthrough ? 'Stop base camp walkthrough' : 'Stop disaster recon replay',
+    );
   }
 
   function stop() {
@@ -409,6 +538,9 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     // The cloud stays: it is the recorded artifact, not the animation.
     layer.setRevealFraction(1);
     fields.status.textContent = 'STOPPED';
+    walkMode = false;
+    walkPhase = null;
+    cctv.hidden = true;
     showIdle();
     releaseChase();
   }
@@ -418,6 +550,11 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     else void start();
   });
 
+  walkBtn.addEventListener('click', () => {
+    if (timer) stop();
+    else void start({ walkthrough: true });
+  });
+
   return {
     stop,
     destroy() {
@@ -425,7 +562,9 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
       stop();
       button.remove();
       baseCampBtn.remove();
+      walkBtn.remove();
       panel.remove();
+      cctv.remove();
     },
     isRunning: () => timer !== null,
   };

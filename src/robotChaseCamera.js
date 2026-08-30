@@ -31,6 +31,13 @@ export const ROBOT_CHASE_DEFAULTS = Object.freeze({
   groundClearanceM: 1.2,
 });
 
+/** First-person: the camera rides at the G1's head-camera height. */
+export const ROBOT_FIRST_PERSON_DEFAULTS = Object.freeze({
+  eyeHeightM: 1.25,
+  pitchDeg: -5,
+  groundClearanceM: 0.4,
+});
+
 /** Clamp a user range request to the chase envelope. */
 export function clampChaseRangeM(rangeM, defaults = ROBOT_CHASE_DEFAULTS) {
   if (!Number.isFinite(rangeM)) return defaults.rangeM;
@@ -57,13 +64,17 @@ export function createRobotChaseCamera(viewer) {
    * @param {() => ({position: Cesium.Cartesian3, headingDeg?: number,
    *   groundHeightM?: number|null}|null)} getTargetFn - Layer-owned target
    *   getter; returning null skips the frame (bounded coasting upstream).
-   * @param {{rangeM?: number, pitchDeg?: number}} [options]
+   * @param {{rangeM?: number, pitchDeg?: number, firstPerson?: boolean}} [options]
+   *   `firstPerson` poses the camera AT the target (head-camera height,
+   *   facing the target's heading) instead of behind it.
    */
   function start(getTargetFn, options = {}) {
     stop();
+    const firstPerson = options.firstPerson === true;
     rangeM = clampChaseRangeM(options.rangeM);
+    const modeDefaults = firstPerson ? ROBOT_FIRST_PERSON_DEFAULTS : ROBOT_CHASE_DEFAULTS;
     const pitchDeg = Number.isFinite(options.pitchDeg)
-      ? options.pitchDeg : ROBOT_CHASE_DEFAULTS.pitchDeg;
+      ? options.pitchDeg : modeDefaults.pitchDeg;
     savedInputs = viewer.scene.screenSpaceCameraController.enableInputs;
     viewer.scene.screenSpaceCameraController.enableInputs = false;
     lastTickMs = 0;
@@ -81,14 +92,25 @@ export function createRobotChaseCamera(viewer) {
       // Anchor slightly above the robot's feet so the frame reads eye-level.
       Cesium.Cartographic.fromCartesian(target.position, Cesium.Ellipsoid.WGS84, scratchCarto);
       const groundH = Number.isFinite(target.groundHeightM) ? target.groundHeightM : null;
-      const proposed = scratchCarto.height + ROBOT_CHASE_DEFAULTS.eyeHeightM;
+      const proposed = scratchCarto.height + modeDefaults.eyeHeightM;
       const safeH = groundH != null
-        ? cockpitGroundSafeHeight(proposed, groundH, ROBOT_CHASE_DEFAULTS.groundClearanceM)
+        ? cockpitGroundSafeHeight(proposed, groundH, modeDefaults.groundClearanceM)
         : proposed;
       const anchor = Cesium.Cartesian3.fromRadians(
         scratchCarto.longitude, scratchCarto.latitude, safeH,
       );
 
+      if (firstPerson) {
+        viewer.camera.setView({
+          destination: anchor,
+          orientation: {
+            heading: Cesium.Math.toRadians(heading),
+            pitch: Cesium.Math.toRadians(pitchDeg),
+            roll: 0,
+          },
+        });
+        return;
+      }
       viewer.camera.lookAt(
         anchor,
         new Cesium.HeadingPitchRange(
