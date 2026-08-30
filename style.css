@@ -1916,6 +1916,115 @@ body.ui-clean-view #scene-runtime.active {
   transform: none;
 }
 
+#top-center-actions #robot-demo-btn {
+  width: auto;
+  padding: 0 14px;
+  border-radius: 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #7ef0a5;
+  border-color: rgba(126, 240, 165, 0.35);
+  white-space: nowrap;
+}
+
+#top-center-actions #robot-demo-btn.active {
+  color: #ffb04d;
+  border-color: rgba(255, 176, 77, 0.45);
+}
+
+#robot-demo-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 110;
+  width: 280px;
+  padding: 12px 14px;
+  background: var(--glass-bg);
+  border: 1px solid rgba(126, 240, 165, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+}
+
+.robot-demo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.robot-demo-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #7ef0a5;
+}
+
+.robot-demo-chip {
+  padding: 2px 8px;
+  border: 1px solid rgba(126, 240, 165, 0.4);
+  border-radius: 9px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #7ef0a5;
+}
+
+.robot-demo-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.robot-demo-key {
+  color: var(--text-secondary);
+  opacity: 0.7;
+  letter-spacing: 0.08em;
+}
+
+.robot-demo-value {
+  color: #e8f5ee;
+  text-align: right;
+}
+
+.robot-demo-value.robot-demo-warn {
+  color: #ffb04d;
+}
+
+.robot-demo-progress {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: rgba(126, 240, 165, 0.15);
+  overflow: hidden;
+}
+
+.robot-demo-progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 2px;
+  background: #7ef0a5;
+  transition: width 200ms linear;
+}
+
+.robot-demo-footer {
+  margin-top: 8px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+}
+
+body.ui-clean-view #robot-demo-panel {
+  display: none;
+}
+
 #top-center-actions .material-symbols-outlined {
   font-size: 18px;
 }
