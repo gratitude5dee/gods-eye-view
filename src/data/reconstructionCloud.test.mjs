@@ -122,6 +122,24 @@ test('a visible terrain globe still answers when sampling misses', async () => {
   reconstructionCloudLayer.destroy();
 });
 
+test('replacing the source drops the previous placement instead of reporting it', async () => {
+  const viewer = makeViewer({ sampleHeight: 5300, globeShown: false });
+  reconstructionCloudLayer.init(viewer);
+  reconstructionCloudLayer.setSource({ anchor: ANCHOR, plyUrl: '/t/one.ply', posesUrl: '/t/none.npy' });
+  await withFetch({ '/t/one.ply': plyBytes([[0, 0, 0]]) }, async () => {
+    await reconstructionCloudLayer.load();
+  });
+  assert.equal(reconstructionCloudLayer.getStats().anchorHeightMeasured, true);
+  reconstructionCloudLayer.setSource({ anchor: ANCHOR, plyUrl: '/t/other.ply', posesUrl: '/t/none.npy' });
+  const stats = reconstructionCloudLayer.getStats();
+  assert.equal(stats.count, 0);
+  assert.equal(stats.anchorHeightM, 0);
+  assert.equal(stats.anchorHeightMeasured, false,
+    'an unloaded source must not inherit the last cloud\'s measured height');
+  reconstructionCloudLayer.destroy();
+  assert.equal(reconstructionCloudLayer.getStats().anchorHeightMeasured, false);
+});
+
 test('a missing reconstruction leaves the layer honest instead of throwing out of enable', async () => {
   const viewer = makeViewer({ sampleHeight: 10 });
   reconstructionCloudLayer.init(viewer);
