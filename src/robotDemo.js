@@ -538,6 +538,8 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     // The cloud stays: it is the recorded artifact, not the animation.
     layer.setRevealFraction(1);
     fields.status.textContent = 'STOPPED';
+    // Invalidate any walkthrough flight still awaiting its terrain sample.
+    if (walkMode) flightGeneration += 1;
     walkMode = false;
     walkPhase = null;
     cctv.hidden = true;
