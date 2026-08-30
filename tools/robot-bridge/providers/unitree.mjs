@@ -86,7 +86,12 @@ export function createProvider({
       error = err?.code === 'ENOENT' ? null : (err?.message || String(err));
       return;
     }
-    if (record?.seq != null && record.seq === lastSeq) {
+    if (!Number.isSafeInteger(record?.seq)) {
+      counts.rejected += 1;
+      error = 'record.seq must be an integer';
+      return;
+    }
+    if (record.seq === lastSeq) {
       counts.unchanged += 1;
       return;
     }
@@ -105,7 +110,7 @@ export function createProvider({
       return;
     }
     counts.accepted += 1;
-    lastSeq = record.seq ?? null;
+    lastSeq = record.seq;
     lastFrameAt = built.frame.t;
     lastBatch = typeof record.batch === 'string' ? record.batch : lastBatch;
     previous = { enu: built.enu, t: built.frame.t };
