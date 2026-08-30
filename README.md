@@ -275,6 +275,8 @@ src/
 
 See [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md) for the authoritative runtime reference.
 
+**Humanitarian build:** [`README-savenepal.md`](README-savenepal.md) — *Fo Guang: Buddha's Light #savenepal* — covers the disaster-response stack on top of this client: the Nepal street-level viewpoint pack, the G1 humanoid layer with its chase camera, and the ABot-Recon reconstruction replay. Architecture in [`docs/ARCHITECTURE-savenepal.md`](docs/ARCHITECTURE-savenepal.md).
+
 ---
 
 ## 🔑 API Keys

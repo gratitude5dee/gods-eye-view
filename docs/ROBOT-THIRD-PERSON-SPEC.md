@@ -71,7 +71,9 @@ sites that must agree: `src/main.js` registration, `src/data/layerState.js`
 - Bounded 5-fix histories; dead-reckoned interpolation ~1 telemetry interval
   behind wall clock (`src/data/robotMotion.js`); bounded coast, no drift.
 - Shared `BillboardCollection` registered as `ground-robots`; stand-in SVG
-  glyph (no G1 mesh shipped — licensing).
+  glyph is the baseline render. The optional `models3d` flag (default OFF)
+  hands the glyph off to `/models/unitree-g1.glb` the way `flights.js` hands a
+  fleet billboard off to its glTF; OFF renders exactly the billboard-only path.
 - Selection announces `requestWorldFocus({kind:'robot'})`; the layer contains
   **no** `camera.flyTo` / `trackedEntity` / `lookAt`.
 - Detection type `GROUND`, tier `ground`, semantic priority 40.
@@ -87,8 +89,9 @@ through `runImmediateNavigation('robot', ...)` (the layer dispatches
 `ui.js::_releaseFollowCamera()` → `groundRobotsLayer.releaseCameraOwnership()`.
 
 - `scene.preUpdate` (never `preRender`), bounded correction, 60°/s yaw slew.
-- Range clamp 2–40 m, default 6 m, pitch −15°, eye height ~2.5 m,
-  terrain-safe anchor.
+- Range clamp 2–40 m, default 6 m, pitch −15°, eye height 1.0 m
+  (`ROBOT_CHASE_DEFAULTS.eyeHeightM`), terrain-safe anchor with 1.2 m ground
+  clearance.
 - Holds `holdContinuousRender('robot-chase')` on start and releases it
   symmetrically on stop; camera inputs disabled while active and restored
   after; `lookAtTransform` cleared on stop. A leaked hold is the whole frame
