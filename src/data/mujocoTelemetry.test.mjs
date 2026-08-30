@@ -134,6 +134,25 @@ test('a complete over-long line is dropped whole and later lines survive', () =>
   assert.equal(pushed.overflow, 40, 'only the oversized logical line is charged');
 });
 
+test('the cap counts UTF-8 bytes, not UTF-16 units', () => {
+  const reader = createLineReader({ maxLineBytes: 16 });
+  // 8 characters, 24 bytes: under the cap by `length`, over it on the wire.
+  const wide = 'あ'.repeat(8);
+  const pushed = reader.push(`{"a":1}\n${wide}\n{"b":2}\n`);
+  assert.deepEqual(pushed.lines, ['{"a":1}', '{"b":2}'],
+    'a multibyte record over the byte cap does not reach ingest');
+  assert.equal(pushed.overflow, 24, 'overflow is charged in bytes');
+});
+
+test('a split multibyte line is bounded and resynchronizes on the next newline', () => {
+  const reader = createLineReader({ maxLineBytes: 16 });
+  const flood = reader.push('あ'.repeat(7)); // 21 bytes, no newline yet
+  assert.equal(flood.overflow, 21);
+  const resync = reader.push('あ\n{"c":3}\n');
+  assert.deepEqual(resync.lines, ['{"c":3}']);
+  assert.equal(resync.overflow, 3, 'the dropped remainder is charged in bytes too');
+});
+
 // ---------------------------------------------------------------------------
 // Provider contract
 // ---------------------------------------------------------------------------
