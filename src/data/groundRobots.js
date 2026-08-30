@@ -106,6 +106,8 @@ const state = {
   /** @type {Cesium.Cartesian3[]} Selected-robot trail vertices. */
   trailPoints: [],
   abort: null,
+  /** Serverless deploys have no persistent relay — degraded, not an error. */
+  relayUnsupported: false,
   geoidReady: false,
   groundSnap: null,
 };
@@ -346,7 +348,7 @@ function removeInteraction() {
 }
 
 function openStream() {
-  if (state.eventSource || typeof EventSource !== 'function') return;
+  if (state.eventSource || state.relayUnsupported || typeof EventSource !== 'function') return;
   try {
     const source = new EventSource(STREAM_URL);
     source.onmessage = (event) => {
@@ -382,9 +384,19 @@ async function loadSnapshot() {
     const res = await fetch(TELEMETRY_URL, { signal: abort.signal });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      state.error = body?.reason || `telemetry ${res.status}`;
+      if (body?.status === 'unsupported') {
+        // No relay on this host (e.g. serverless): local demo frames still
+        // work, so this is a degraded source, not a layer failure.
+        state.relayUnsupported = true;
+        state.error = null;
+        closeStream();
+        state.streamStatus = 'unsupported';
+      } else {
+        state.error = body?.reason || `telemetry ${res.status}`;
+      }
       return;
     }
+    state.relayUnsupported = false;
     const payload = await res.json();
     for (const frame of payload?.robots || []) {
       const record = state.robots.get(frame.id);
@@ -462,7 +474,7 @@ const groundRobotsLayer = {
   },
 
   update(viewer) {
-    if (!state.enabled) return Promise.resolve();
+    if (!state.enabled || state.relayUnsupported) return Promise.resolve();
     void viewer;
     return loadSnapshot();
   },
@@ -612,6 +624,7 @@ const groundRobotsLayer = {
       lastUpdate: state.lastUpdate,
       loading: state.loading,
       error: state.error,
+      relayUnsupported: state.relayUnsupported,
       streamStatus: state.streamStatus,
     };
   },
