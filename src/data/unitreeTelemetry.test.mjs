@@ -113,9 +113,21 @@ test('the provider delivers one frame per seq and tolerates an absent file', asy
   assert.equal(frames.length, 2);
   assert.ok(frames[1].vel, 'second window derives velocity from the first');
 
+  // A record with no usable seq must be rejected, not re-emitted every poll.
+  const noSeq = record({ t: Date.now() + 200 });
+  delete noSeq.seq;
+  write(noSeq);
+  await provider._poll();
+  await provider._poll();
+  assert.equal(frames.length, 2, 'seq-less records never reach the bridge');
+  assert.match(provider.getStatus().error, /seq/);
+  write(record({ seq: 2, t: Date.now() + 300 }));
+  await provider._poll(); // recover: same seq as last accepted → unchanged
+
   const status = provider.getStatus();
+  assert.equal(status.rejected, 2);
   assert.equal(status.accepted, 2);
-  assert.equal(status.unchanged, 1);
+  assert.equal(status.unchanged, 2);
   assert.equal(status.lastSeq, 2);
   assert.equal(status.lastBatch, 'points/batch_000001.ply');
   assert.equal(status.status, 'live');

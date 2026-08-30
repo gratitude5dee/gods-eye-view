@@ -1916,7 +1916,8 @@ body.ui-clean-view #scene-runtime.active {
   transform: none;
 }
 
-#top-center-actions #robot-demo-btn {
+#top-center-actions #robot-demo-btn,
+#top-center-actions #recon-demo-btn {
   width: auto;
   padding: 0 14px;
   border-radius: 18px;
@@ -1929,12 +1930,14 @@ body.ui-clean-view #scene-runtime.active {
   white-space: nowrap;
 }
 
-#top-center-actions #robot-demo-btn.active {
+#top-center-actions #robot-demo-btn.active,
+#top-center-actions #recon-demo-btn.active {
   color: #ffb04d;
   border-color: rgba(255, 176, 77, 0.45);
 }
 
-#robot-demo-panel {
+#robot-demo-panel,
+#recon-demo-panel {
   position: fixed;
   right: 16px;
   bottom: 16px;
@@ -2021,7 +2024,8 @@ body.ui-clean-view #scene-runtime.active {
   opacity: 0.6;
 }
 
-body.ui-clean-view #robot-demo-panel {
+body.ui-clean-view #robot-demo-panel,
+body.ui-clean-view #recon-demo-panel {
   display: none;
 }
 
