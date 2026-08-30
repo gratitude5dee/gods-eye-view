@@ -333,8 +333,12 @@ function poiNameTokens(s) {
  * Capitol" reuses its hand-tuned camera pose (same framing as the LOCATIONS-panel button) instead
  * of generic geocode framing. Match is order-free word-set CONTAINMENT (the POI name's words must
  * all appear in the query — so "Frost Bank Tower" matches "frost tower bank", and extra words like
- * a trailing city are fine), and the POI name must be ≥2 words so a single shared token ("Texas",
- * "Tower") can't grab the wrong landmark. Returns { cityId, index } or null.
+ * a trailing city are fine), and a ≥2-word POI name is required for that loose containment so a
+ * single shared token ("Texas", "Tower") can't grab the wrong landmark.
+ *
+ * A one-word POI ("Timure", "Betrawati") is matchable only by a query that names IT and nothing
+ * else beyond its city — containment would let any ask mentioning the word drag the whole preset
+ * pose along. It always loses to a multi-word match. Returns { cityId, index } or null.
  * @param {string} query
  * @returns {{cityId: string, index: number} | null}
  */
@@ -343,9 +347,16 @@ export function findPoiByName(query) {
   if (q.size === 0) return null;
   let best = null;
   for (const [cityId, city] of Object.entries(CITY_POIS)) {
+    const cityTokens = poiNameTokens(city.name);
     city.pois.forEach((poi, index) => {
       const name = poiNameTokens(poi.name);
-      if (name.size < 2) return; // single-word POI names are too ambiguous to match loosely
+      if (name.size === 0) return;
+      if (name.size === 1) {
+        const named = [...name][0];
+        const onlyNamesThisPoi = q.has(named) && [...q].every((w) => w === named || cityTokens.has(w));
+        if (onlyNamesThisPoi && !best) best = { cityId, index, size: 1 };
+        return;
+      }
       const fullyNamed = [...name].every((w) => q.has(w));
       if (fullyNamed && (!best || name.size > best.size)) best = { cityId, index, size: name.size };
     });
