@@ -257,7 +257,7 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     const groundM = (await layer.resolveAnchorSurfaceHeightM?.(anchor)) || 0;
     if (disposed || generation !== flightGeneration) return;
     requestWorldFocus({
-      kind: 'robot',
+      kind: 'recon',
       id: 'recon-base-camp',
       position: Cesium.Cartesian3.fromDegrees(
         anchor.lon, anchor.lat, groundM + (anchor.elevM || 0),
