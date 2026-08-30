@@ -260,6 +260,9 @@ export class MapStackController {
       provider = new Cesium.OpenStreetMapImageryProvider({
         url: 'https://tile.openstreetmap.org/',
         credit: DEFAULT_OSM_CREDIT,
+        // openstreetmap.org serves raster tiles up to z19; ground-level
+        // cameras otherwise request z20+ and every fetch 404s.
+        maximumLevel: 19,
       });
     } else {
       throw new Error(`Unsupported map stack: ${stack.id}`);
