@@ -334,7 +334,8 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
       fields.points.textContent = String(error?.message || error).slice(0, 80);
       button.disabled = false;
       showIdle();
-      void setLayerEnabled('recon-cloud', false);
+      // A refused disable is not worth surfacing, but an unhandled rejection is.
+      await Promise.resolve(setLayerEnabled('recon-cloud', false)).catch(() => {});
       return;
     } finally {
       if (!disposed) button.disabled = false;

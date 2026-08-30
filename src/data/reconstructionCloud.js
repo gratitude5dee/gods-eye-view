@@ -87,6 +87,8 @@ function clearPoints() {
   if (state.collection && !state.collection.isDestroyed?.()) state.collection.removeAll();
   state.points = [];
   state.revealed = 0;
+  state.anchorHeightM = 0;
+  state.anchorHeightMeasured = false;
 }
 
 const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
