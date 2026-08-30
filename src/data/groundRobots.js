@@ -138,6 +138,12 @@ function recordFor(id) {
 /** Fold one accepted frame into a record's bounded fix history. */
 function acceptFrame(frame) {
   const record = recordFor(frame.id);
+  // Fix elevations are only meaningful within one datum: a datum switch
+  // (e.g. wgs84 → agl) would interpolate across incompatible units, so the
+  // position history restarts from the new frame instead.
+  if (record.latestFrame && record.latestFrame.datum !== frame.datum) {
+    record.fixes.length = 0;
+  }
   record.latestFrame = frame;
   pushFix(record.fixes, {
     t: frame.t,

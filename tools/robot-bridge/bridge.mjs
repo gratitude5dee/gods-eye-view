@@ -74,6 +74,13 @@ async function main() {
   let inFlight = false;
   let sent = 0;
 
+  /** Backoff sleep, clamped to whatever drain budget remains at sleep time. */
+  async function backoffSleep(ms, deadline) {
+    const budget = deadline === undefined ? ms : Math.min(ms, deadline - Date.now());
+    if (budget <= 0) return;
+    await new Promise((r) => setTimeout(r, budget));
+  }
+
   /**
    * @param {number} [deadline] - Epoch ms after which this flush must not
    *   wait: the POST is aborted at the deadline and backoff sleeps are
@@ -106,12 +113,12 @@ async function main() {
       } else {
         backoffMs = Math.min(MAX_BACKOFF_MS, backoffMs ? backoffMs * 2 : 1000);
         console.error(`ingest failed (${res.status}); backing off ${backoffMs} ms`);
-        await new Promise((r) => setTimeout(r, Math.min(backoffMs, remainingMs)));
+        await backoffSleep(backoffMs, deadline);
       }
     } catch (err) {
       backoffMs = Math.min(MAX_BACKOFF_MS, backoffMs ? backoffMs * 2 : 1000);
       console.error(`ingest unreachable (${err?.message}); backing off ${backoffMs} ms`);
-      await new Promise((r) => setTimeout(r, Math.min(backoffMs, remainingMs)));
+      await backoffSleep(backoffMs, deadline);
     } finally {
       inFlight = false;
     }
