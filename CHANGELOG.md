@@ -30,6 +30,10 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 ### Fixed
 
+- Ground-snapped 3D models no longer render below the fallback globe: snap
+  picks are cross-checked against the rendered globe's height, and cached snap
+  heights are keyed to the rendered surface so map-stack and terrain-provider
+  switches force a resample instead of holding a stale height.
 - A missing optional FIRMS key no longer turns the complete Environmental
   mission into `LOAD FAILED`. The FIRMS row still reports `KEY REQUIRED`, while
   earthquakes continue to load. Real lifecycle and fetch failures retain

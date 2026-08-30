@@ -216,6 +216,29 @@ This is the current runtime/source-of-truth snapshot for the project.
 >   honestly for the contract to hold, and must be pinned against the shape its
 >   own module really returns — a fixture that invents a status the module cannot
 >   emit guards nothing (that is exactly how a hole here survived a green suite).
+> - **A ground snap is validated against, and keyed to, the RENDERED surface
+>   (2026-08-30):** browser QA caught a G1 demo contact snapped ~400 m below the
+>   fallback globe — on the OSM/Re:Earth globe `scene.sampleHeight` can miss or
+>   pick something other than the terrain, and nothing checked it. Two rules in
+>   `src/data/groundSnap.js` now govern this. (a) While `scene.globe.show` is
+>   true, a fresh pick is cross-checked against `globe.getHeight` at the same
+>   cartographic: a pick that misses, or disagrees by more than
+>   `SNAP_GLOBE_DISAGREEMENT_M` (30 m), is replaced by the globe reading. This is
+>   deliberately NOT applied under photoreal (`globe.show` false) — the tile skin
+>   is a different surface from the hidden globe's terrain, and the spread
+>   between them is real elevation the snap exists to capture. (b) Every cache
+>   entry records the surface it was measured on (`surfaceKeyFor`): a photoreal
+>   sentinel while the globe is hidden, the terrain-provider INSTANCE while it is
+>   shown. A mismatch drops the whole entry — held value and miss backoff
+>   included — so a map-stack switch, or the terrain-provider swap that lands
+>   AFTER `MapStackController._activateGlobeStack` flips `globe.show` (the
+>   Re:Earth `layer.json` await), forces a resample for a stationary contact
+>   instead of holding it buried/floating on a surface no longer rendered. The
+>   provider-instance key is load-bearing: a `globe.show` boolean alone caches
+>   startup-terrain heights taken during the switching window forever. Under
+>   photoreal the sentinel deliberately IGNORES provider identity — terrain is
+>   inert while the globe is hidden. Movement invalidation and the WARM hold
+>   below are unchanged within one surface regime.
 > - **A held ground snap is dropped when measured ground contradicts it
 >   (2026-08-23):** the WARM hold described below answers on DISTANCE travelled,
 >   which is only a proxy for whether the value still describes the ground. A
