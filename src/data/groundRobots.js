@@ -150,10 +150,17 @@ function acceptFrame(frame) {
   state.lastUpdate = Date.now();
 }
 
-/** Ellipsoid height for a record's current pose (orthometric + geoid N). */
+/**
+ * Ellipsoid height for a record's current pose without a terrain sample.
+ * WGS84 renders directly; EGM96 adds geoid undulation. AGL and slam-local
+ * altitudes are ground-relative, so they return null (not renderable) until
+ * groundSnap supplies a terrain height — treating them as orthometric would
+ * place the robot near sea level.
+ */
 function ellipsoidHeightM(record, pose) {
   const datum = record.latestFrame?.datum;
   if (datum === 'wgs84-ellipsoid') return pose.elevM;
+  if (datum === 'agl' || datum === 'slam-local') return null;
   const n = state.geoidReady ? geoidHeight(pose.lat, pose.lon) : 0;
   return pose.elevM + (Number.isFinite(n) ? n : 0);
 }
@@ -165,19 +172,20 @@ function renderTick() {
   const renderMs = Date.now() - ROBOT_RENDER_DELAY_MS;
   const expiredBefore = Date.now() - ROBOT_EXPIRE_MS;
   for (const record of state.robots.values()) {
-    if (record.latestFrame && record.latestFrame.t < expiredBefore) {
+    if (record.latestFrame && (record.latestFrame.rx ?? record.latestFrame.t) < expiredBefore) {
       removeRecord(record);
       continue;
     }
     const pose = robotPoseAt(record.fixes, renderMs);
     if (!pose) continue;
     record.lastPose = pose;
-    const heightM = ellipsoidHeightM(record, pose) + ROBOT_LIFT_M;
+    const fallbackH = ellipsoidHeightM(record, pose);
     // Terrain snap (cached, never per-frame sampling inside groundSnap):
     // prefer the rendered mesh height when a validated sample exists.
     const surface = Cesium.Cartesian3.fromDegrees(pose.lon, pose.lat, 0);
     const snapped = state.groundSnap?.heightFor(viewer, record.id, surface);
-    const finalH = Number.isFinite(snapped) ? snapped + ROBOT_LIFT_M : heightM;
+    if (!Number.isFinite(snapped) && !Number.isFinite(fallbackH)) continue;
+    const finalH = (Number.isFinite(snapped) ? snapped : fallbackH) + ROBOT_LIFT_M;
     record.groundHeightM = Number.isFinite(snapped) ? snapped : null;
     record.position = Cesium.Cartesian3.fromDegrees(pose.lon, pose.lat, finalH);
     if (!record.billboard) {
@@ -218,6 +226,10 @@ function removeRecord(record) {
     state.billboardCollection.remove(record.billboard);
   }
   if (state.selectedId === record.id) clearSelection();
+  if (state.chaseTargetId === record.id) {
+    state.chaseTargetId = null;
+    state.chaseCamera?.stop();
+  }
   state.robots.delete(record.id);
   state.groundSnap?.forget(record.id);
 }

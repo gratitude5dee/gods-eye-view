@@ -21,6 +21,10 @@ import { MAX_FRAMES_PER_BATCH } from '../../src/data/robotFrame.js';
 const FLUSH_INTERVAL_MS = 500;
 const MAX_BACKOFF_MS = 30_000;
 const MAX_PENDING_FRAMES = 2000;
+/** Shutdown drains pending frames for at most this long before exiting. */
+const SHUTDOWN_DRAIN_MS = 10_000;
+/** Providers this bridge may load; --provider is not a free module path. */
+const KNOWN_PROVIDERS = new Set(['synthetic', 'replay', 'phone']);
 
 function parseArgs(argv) {
   const args = {
@@ -43,6 +47,9 @@ function parseArgs(argv) {
 }
 
 async function loadProvider(name, options) {
+  if (!KNOWN_PROVIDERS.has(name)) {
+    throw new Error(`unknown provider '${name}' (expected one of: ${[...KNOWN_PROVIDERS].join(', ')})`);
+  }
   const module = await import(`./providers/${name}.mjs`);
   return module.createProvider(options);
 }
@@ -114,11 +121,23 @@ async function main() {
   });
   console.log(`[bridge] ${args.provider} → ${args.ingest} (seed=${args.seed}, ${args.rate} Hz)`);
 
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     clearInterval(flushTimer);
     clearInterval(statusTimer);
     await provider.stop();
-    await flush();
+    // Drain: wait out any in-flight POST, then flush bounded batches until
+    // pending is empty or the deadline passes.
+    const deadline = Date.now() + SHUTDOWN_DRAIN_MS;
+    while ((inFlight || pending.length > 0) && Date.now() < deadline) {
+      await flush();
+      if (inFlight || pending.length > 0) await new Promise((r) => setTimeout(r, 50));
+    }
+    if (pending.length > 0) {
+      console.error(`[bridge] shutdown deadline reached; dropping ${pending.length} frames`);
+    }
     process.exit(0);
   };
   process.on('SIGINT', shutdown);

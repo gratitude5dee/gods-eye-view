@@ -103,10 +103,17 @@ export function robotTelemetryProxy() {
   let rateLimiter;
 
   function acceptFrames(frames) {
+    // Preflight the robot cap so a rejected batch never partially lands.
+    const newIds = new Set();
+    for (const frame of frames) {
+      if (!rings.has(frame.id)) newIds.add(frame.id);
+    }
+    if (rings.size + newIds.size > MAX_ROBOTS) {
+      return { ok: false, error: 'robot cap reached' };
+    }
     for (const frame of frames) {
       let ring = rings.get(frame.id);
       if (!ring) {
-        if (rings.size >= MAX_ROBOTS) return { ok: false, error: 'robot cap reached' };
         ring = [];
         rings.set(frame.id, ring);
       }
@@ -116,6 +123,12 @@ export function robotTelemetryProxy() {
     if (sseClients.size) {
       const data = `data: ${JSON.stringify({ frames })}\n\n`;
       for (const client of sseClients) {
+        // Backpressured clients skip events rather than queueing unbounded
+        // buffers; SSE `retry` + the 1 s telemetry poll recover the gap.
+        if (client.writableNeedDrain || client.destroyed) {
+          if (client.destroyed) sseClients.delete(client);
+          continue;
+        }
         try { client.write(data); } catch { sseClients.delete(client); }
       }
     }
