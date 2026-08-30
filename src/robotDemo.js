@@ -21,6 +21,7 @@
  * @module robotDemo
  */
 
+import * as Cesium from 'cesium';
 import routeJson from '../config/routes/khumbu-ebc.json';
 import reconAnchor from '../config/recon/g1-anchor.json';
 import { parseRoute } from './data/robotTransposition.js';
@@ -29,6 +30,7 @@ import { createReconstructionReplay } from './data/reconstructionReplay.js';
 import groundRobotsLayer, { ROBOT_CHASE_REQUEST_EVENT } from './data/groundRobots.js';
 import reconstructionCloudLayer from './data/reconstructionCloud.js';
 import { provenanceChip } from './data/robotFrame.js';
+import { requestWorldFocus } from './worldFocus.js';
 
 const DEMO_ROBOT_ID = 'g1-01';
 const RATE_HZ = 10;
@@ -243,6 +245,23 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
   button.textContent = '▶ DISASTER RECON';
   actions.appendChild(button);
 
+  const baseCampBtn = el('button', 'robot-demo-btn');
+  baseCampBtn.id = 'recon-basecamp-btn';
+  baseCampBtn.type = 'button';
+  baseCampBtn.title = `Fly to the reconstruction anchor (${anchor.name || 'anchor'})`;
+  baseCampBtn.setAttribute('aria-label', 'Fly to reconstruction base camp');
+  baseCampBtn.textContent = '⌖ BASE CAMP';
+  baseCampBtn.addEventListener('click', () => {
+    const heightM = (anchor.elevM || 0) + (layer.getStats().anchorHeightM || 0);
+    requestWorldFocus({
+      kind: 'robot',
+      id: 'recon-base-camp',
+      position: Cesium.Cartesian3.fromDegrees(anchor.lon, anchor.lat, heightM),
+      durationSec: 2.4,
+    });
+  });
+  actions.appendChild(baseCampBtn);
+
   const panel = el('aside', 'robot-demo-panel');
   panel.id = 'recon-demo-panel';
   panel.hidden = true;
@@ -399,6 +418,7 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
       disposed = true;
       stop();
       button.remove();
+      baseCampBtn.remove();
       panel.remove();
     },
     isRunning: () => timer !== null,
