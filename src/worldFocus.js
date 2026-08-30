@@ -10,6 +10,9 @@ export const WORLD_FOCUS_FRAMING = Object.freeze({
   vessel: Object.freeze({ radiusM: 150, rangeM: 1200, pitchDeg: -30 }),
   fire: Object.freeze({ radiusM: 400, rangeM: 3000, pitchDeg: -35 }),
   robot: Object.freeze({ radiusM: 30, rangeM: 250, pitchDeg: -25 }),
+  // Reconstruction anchors sit on streamed terrain that can settle a few
+  // hundred meters after arrival, so the framing keeps a wide vertical margin.
+  recon: Object.freeze({ radiusM: 60, rangeM: 700, pitchDeg: -45 }),
 });
 
 /** Validate a layer-owned focus target before camera policy can release tracking. */

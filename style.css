@@ -1917,7 +1917,8 @@ body.ui-clean-view #scene-runtime.active {
 }
 
 #top-center-actions #robot-demo-btn,
-#top-center-actions #recon-demo-btn {
+#top-center-actions #recon-demo-btn,
+#top-center-actions #recon-basecamp-btn {
   width: auto;
   padding: 0 14px;
   border-radius: 18px;

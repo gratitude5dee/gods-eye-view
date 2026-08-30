@@ -338,6 +338,22 @@ const reconstructionCloudLayer = {
     return loadOnce();
   },
 
+  /**
+   * Surface height at an anchor: a fresh sample of the rendered surface when
+   * one resolves (streamed tiles can settle above the placement height),
+   * otherwise the height the cloud was placed on.
+   * @param {{lat: number, lon: number}} [anchor]
+   * @returns {Promise<number>}
+   */
+  async resolveAnchorSurfaceHeightM(anchor = state.anchor) {
+    if (!state.viewer || !anchor) return state.anchorHeightMeasured ? state.anchorHeightM : 0;
+    const heightM = await sampleAnchorHeightM(state.viewer, anchor);
+    if (heightM !== null) return heightM;
+    if (state.anchorHeightMeasured) return state.anchorHeightM;
+    const ground = await resolveAnchorHeightM(state.viewer, anchor, state.epoch);
+    return ground.heightM;
+  },
+
   /** @returns {Array<{lat: number, lon: number, elevM: number, headingDeg: number}>} */
   getWaypoints() {
     return state.waypoints;
