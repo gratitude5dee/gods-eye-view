@@ -144,6 +144,9 @@ const RETRY_MAX_MS = 30000;
  *  the tile skin is a different surface from the hidden globe's terrain, and
  *  the spread between them is real elevation the snap exists to capture. */
 const SNAP_GLOBE_DISAGREEMENT_M = 30;
+/** Surface-cache key while the globe is hidden and picks land on the
+ *  photoreal tile skin (see `surfaceKeyFor`). */
+const PHOTOREAL_SURFACE = Symbol('photoreal-surface');
 /** Max sampleHeight calls per window across the layer (airport-cluster burst guard). */
 const SAMPLE_BUDGET_PER_WINDOW = 4;
 /** Budget window length (ms). */
@@ -184,12 +187,12 @@ function _tilesReady(viewer) {
  */
 export function createGroundSnap() {
   /** @type {Map<string, {h: number|null, samplePos: Cesium.Cartesian3|null,
-   *  held: boolean, nextRetryMs: number, misses: number, globeShown: boolean}>}
+   *  held: boolean, nextRetryMs: number, misses: number, surface: unknown}>}
    *  Per-icao snap state: the sampled height and the surface point it was
    *  measured at, whether that pair is still the fresh answer or has been
    *  demoted to a bounded last-known (`held`), the retry backoff a miss earned,
-   *  and which surface regime (fallback globe vs photoreal skin) the
-   *  measurement was taken on. */
+   *  and which rendered surface (see `surfaceKeyFor`) the measurement was
+   *  taken on. */
   const entries = new Map();
   let windowStartMs = 0;
   let windowCount = 0;
@@ -297,16 +300,17 @@ export function createGroundSnap() {
     const surfacePos = Cesium.Ellipsoid.WGS84.scaleToGeodeticSurface(pos, scratchSurfacePos);
     if (!surfacePos) return null;
     // A measurement only describes the surface it was taken ON. When the map
-    // stack switches (photoreal skin ↔ fallback globe) the rendered surface
-    // under a STATIONARY contact changes while nothing else invalidates the
-    // cache — no movement, no ground flip, no eviction — so a snap from the
-    // other regime would keep answering, and hold a model buried (or floating)
-    // by the skin/terrain spread for as long as the contact stays put. Drop
-    // the whole entry, backoff included: the old surface's misses say nothing
-    // about the new surface either.
-    const globeShown = !!viewer?.scene?.globe?.show;
+    // stack switches (photoreal skin ↔ fallback globe) or the globe's terrain
+    // provider changes, the rendered surface under a STATIONARY contact
+    // changes while nothing else invalidates the cache — no movement, no
+    // ground flip, no eviction — so a snap from the other surface would keep
+    // answering, and hold a model buried (or floating) by the surface spread
+    // for as long as the contact stays put. Drop the whole entry, backoff
+    // included: the old surface's misses say nothing about the new surface
+    // either.
+    const surface = surfaceKeyFor(viewer);
     const stale = entries.get(icao);
-    if (stale && stale.globeShown !== globeShown) entries.delete(icao);
+    if (stale && stale.surface !== surface) entries.delete(icao);
     const cached = entries.get(icao);
     if (cached && cached.h != null && cached.samplePos && !cached.held) {
       if (Cesium.Cartesian3.distanceSquared(surfacePos, cached.samplePos) <= MOVE_INVALIDATE_M * MOVE_INVALIDATE_M) {
@@ -337,7 +341,7 @@ export function createGroundSnap() {
         held,
         nextRetryMs: now + Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** misses),
         misses: misses + 1,
-        globeShown,
+        surface,
       };
       entries.set(icao, next);
       return heldSnapM(next, surfacePos);
@@ -385,9 +389,30 @@ export function createGroundSnap() {
       held: false,
       nextRetryMs: 0,
       misses: 0,
-      globeShown,
+      surface,
     });
     return sampled;
+  }
+
+  /**
+   * Identity of the surface a snap taken right now would measure.
+   *
+   * With the globe hidden the pick lands on the photoreal tile skin — the
+   * terrain provider is inert, so its identity must NOT key the cache (it can
+   * change under photoreal without moving the rendered surface). With the
+   * globe shown, the key is the terrain provider INSTANCE, not a boolean:
+   * `MapStackController._activateGlobeStack` flips `globe.show` and then
+   * awaits the Re:Earth terrain fetch, so a sample taken during that await
+   * measures the startup terrain — the provider swap that follows is the only
+   * signal that the rendered globe surface changed under a stationary contact.
+   *
+   * @param {Cesium.Viewer} viewer
+   * @returns {unknown} Opaque key; equal only while the rendered surface is
+   *   the same one.
+   */
+  function surfaceKeyFor(viewer) {
+    if (!viewer?.scene?.globe?.show) return PHOTOREAL_SURFACE;
+    return viewer.terrainProvider ?? viewer.scene.terrainProvider ?? null;
   }
 
   /** Drop one aircraft's snap (eviction / ground-flag flip / suppression). */
