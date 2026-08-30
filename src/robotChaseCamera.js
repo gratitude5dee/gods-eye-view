@@ -62,8 +62,12 @@ export function createRobotChaseCamera(viewer) {
   /**
    * Engage the chase loop.
    * @param {() => ({position: Cesium.Cartesian3, headingDeg?: number,
-   *   groundHeightM?: number|null}|null)} getTargetFn - Layer-owned target
+   *   groundHeightM?: number|null, liftM?: number,
+   *   poseIsCameraHeight?: boolean}|null)} getTargetFn - Layer-owned target
    *   getter; returning null skips the frame (bounded coasting upstream).
+   *   `poseIsCameraHeight` marks targets whose position already sits at the
+   *   recorded camera height (bar the render lift `liftM`), so first-person
+   *   adds no eye height.
    * @param {{rangeM?: number, pitchDeg?: number, firstPerson?: boolean}} [options]
    *   `firstPerson` poses the camera AT the target (head-camera height,
    *   facing the target's heading) instead of behind it.
@@ -92,7 +96,10 @@ export function createRobotChaseCamera(viewer) {
       // Anchor slightly above the robot's feet so the frame reads eye-level.
       Cesium.Cartographic.fromCartesian(target.position, Cesium.Ellipsoid.WGS84, scratchCarto);
       const groundH = Number.isFinite(target.groundHeightM) ? target.groundHeightM : null;
-      const proposed = scratchCarto.height + modeDefaults.eyeHeightM;
+      const eyeOffsetM = firstPerson && target.poseIsCameraHeight === true
+        ? -(Number.isFinite(target.liftM) ? target.liftM : 0)
+        : modeDefaults.eyeHeightM;
+      const proposed = scratchCarto.height + eyeOffsetM;
       const safeH = groundH != null
         ? cockpitGroundSafeHeight(proposed, groundH, modeDefaults.groundClearanceM)
         : proposed;

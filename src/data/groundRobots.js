@@ -792,6 +792,11 @@ const groundRobotsLayer = {
         position: target.position,
         headingDeg: target.lastPose?.headingDeg,
         groundHeightM: target.groundHeightM,
+        // slam-local elevations ARE the recorded camera height, so a
+        // first-person camera must undo the glyph lift instead of adding
+        // an eye height on top.
+        liftM: ROBOT_LIFT_M,
+        poseIsCameraHeight: target.latestFrame?.datum === 'slam-local',
       };
     }, options);
     return true;
