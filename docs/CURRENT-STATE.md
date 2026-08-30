@@ -1,6 +1,26 @@
 # God's Eye View Current State
 
-Updated: August 24, 2026
+Updated: August 30, 2026
+
+> **2026-08-30 — in-browser G1 demo mode + relay-less degraded state**
+> (`src/robotDemo.js`, `src/data/robotSyntheticWalker.js`,
+> `src/data/groundRobots.js`, wired in `src/ui.js`). A **▶ G1 DEMO** pill in
+> the top-center actions runs the deterministic synthetic walker locally at
+> 10 Hz — no bridge or relay process — enables Ground Robots, streams frames
+> through `groundRobotsLayer.ingestLocalFrames()` (same `acceptFrame` path and
+> `SIMULATED · VIRTUAL TRANSPOSITION` provenance as relayed telemetry), engages
+> the third-person chase camera after ~1.2 s, and shows a bottom-right live
+> telemetry panel (gait, speed, position, altitude+datum, battery, power, IMU,
+> comms, route progress). **■ STOP DEMO** halts streaming and releases camera
+> ownership. The walker generator was extracted from the bridge's synthetic
+> provider (`tools/robot-bridge/providers/synthetic.mjs` now delegates to it).
+>
+> On hosts without a persistent relay (Vercel serverless), `/api/robot/telemetry`
+> answers `503 {"status":"unsupported"}`. Ground Robots now records that as
+> `relayUnsupported` (exposed in `getStats()`) instead of `stats.error`, closes
+> the SSE stream, and stops the 1 Hz re-poll — so enabling the layer no longer
+> shows a spurious `LOAD FAILED` chip; local demo frames are unaffected. A later
+> successful snapshot (a host with a real relay) clears the flag.
 
 > **2026-08-23 — first-run mission launcher** (`src/firstRunExperience.js`,
 > `#first-run-launcher`, styles at the tail of `style.css`). After startup
