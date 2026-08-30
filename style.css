@@ -1953,6 +1953,10 @@ body.ui-clean-view #scene-runtime.active {
   color: var(--text-secondary);
 }
 
+body:has(#robot-demo-panel:not([hidden])) #recon-demo-panel:not([hidden]) {
+  right: 312px;
+}
+
 .robot-demo-header {
   display: flex;
   align-items: center;

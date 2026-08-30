@@ -93,6 +93,7 @@ export function createProvider({
     }
     if (record.seq === lastSeq) {
       counts.unchanged += 1;
+      error = null;
       return;
     }
     const built = unitreeFrameFromRecord(record, {
