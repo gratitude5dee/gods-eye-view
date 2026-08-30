@@ -31,6 +31,7 @@ import {
   openAiRealtimeProxy,
   googlePlacesContextProxy,
 } from './proxies.js';
+import { robotTelemetryProxy } from './robotProxies.js';
 
 /** @returns {import('vite').Plugin[]} Fresh plugin instances, in mount order. */
 export function gevApiPlugins() {
@@ -54,5 +55,6 @@ export function gevApiPlugins() {
     trackBackfillProxies(),
     openAiRealtimeProxy(),
     googlePlacesContextProxy(),
+    robotTelemetryProxy(),
   ];
 }

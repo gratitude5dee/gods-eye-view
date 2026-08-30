@@ -114,7 +114,7 @@ export const DETECTION_THEME_MAP = Object.freeze({
     filter: 'contrast(1.08) saturate(1.04)',
     scanline: 0.085,
     tiers: {
-      civil: '#ffd27a', military: '#ff8a3c', sea: '#ffc06a', space: '#ffe0a0', vehicle: '#d0a060',
+      civil: '#ffd27a', military: '#ff8a3c', sea: '#ffc06a', space: '#ffe0a0', vehicle: '#d0a060', ground: '#c8e07a',
       veh_jam: '#ff3b30', veh_slow: '#ffb300', veh_free: '#00ff66', veh_nodata: '#c9c9c9',
     },
   },
@@ -131,7 +131,7 @@ export const DETECTION_THEME_MAP = Object.freeze({
     filter: 'contrast(1.12) saturate(1.12)',
     scanline: 0.09,
     tiers: {
-      civil: '#8fe89a', military: '#ff5a47', sea: '#a6f0c0', space: '#9fe8ff', vehicle: '#ffc24a',
+      civil: '#8fe89a', military: '#ff5a47', sea: '#a6f0c0', space: '#9fe8ff', vehicle: '#ffc24a', ground: '#7ef0a5',
       veh_jam: '#ff4538', veh_slow: '#ffc24a', veh_free: '#45d8ff', veh_nodata: '#dcdcdc',
     },
   },
@@ -148,7 +148,7 @@ export const DETECTION_THEME_MAP = Object.freeze({
     filter: 'contrast(1.1) saturate(1.08)',
     scanline: 0.04,
     tiers: {
-      civil: '#ffffff', military: '#ff7a5c', sea: '#ffd0b0', space: '#d0e0ff', vehicle: '#ffcf9f',
+      civil: '#ffffff', military: '#ff7a5c', sea: '#ffd0b0', space: '#d0e0ff', vehicle: '#ffcf9f', ground: '#d8ffc0',
       veh_jam: '#ff4538', veh_slow: '#ffc24a', veh_free: '#2ecc71', veh_nodata: '#d8d8d8',
     },
   },
@@ -165,7 +165,7 @@ export const DETECTION_THEME_MAP = Object.freeze({
     filter: 'contrast(1.05) saturate(1.05)',
     scanline: 0.05,
     tiers: {
-      civil: '#22e0ff', military: '#ffb347', sea: '#3fe0c8', space: '#bda4ff', vehicle: '#8fa6b4',
+      civil: '#22e0ff', military: '#ffb347', sea: '#3fe0c8', space: '#bda4ff', vehicle: '#8fa6b4', ground: '#7ee8a0',
       veh_jam: '#e05252', veh_slow: '#f0b23e', veh_free: '#2ecc71', veh_nodata: '#c9c9c9',
     },
   },

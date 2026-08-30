@@ -831,6 +831,7 @@ function _semanticPriority(obj) {
   if (obj.skipLabel) return 1000;
   if (obj.tier === 'military') return 120;
   if (obj.type === 'CAM') return 50;
+  if (obj.type === 'GROUND') return 40;
   if (obj.type === 'VEH') return 35;
   if (obj.type === 'AIR') return 30;
   if (obj.type === 'SAT') return 25;

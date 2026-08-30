@@ -1,0 +1,40 @@
+[
+  {
+    "id": "khumbu-g1-front",
+    "name": "G1 Front Camera — Tengboche Ridge",
+    "city": "Khumbu",
+    "cityId": "khumbu",
+    "provider": "Gantry Lab (Malaysia) — virtually transposed",
+    "sourceKind": "pilot",
+    "feedType": "image",
+    "url": "https://cctv.tail5670b1.ts.net/snapshot/cam_1",
+    "lat": 27.8361,
+    "lon": 86.7644,
+    "headingDeg": 25,
+    "pitchDeg": -8,
+    "fovDeg": 68,
+    "rangeM": 400,
+    "mountHeightM": 6,
+    "groundElevationM": 3867,
+    "license": "VIRTUAL TRANSPOSITION — real gantry-lab feed (go2rtc snapshot), staged at this location"
+  },
+  {
+    "id": "khumbu-g1-back",
+    "name": "G1 Back Camera — Tengboche Ridge",
+    "city": "Khumbu",
+    "cityId": "khumbu",
+    "provider": "Gantry Lab (Malaysia) — virtually transposed",
+    "sourceKind": "pilot",
+    "feedType": "image",
+    "url": "https://cctv.tail5670b1.ts.net/snapshot/cam_2",
+    "lat": 27.8363,
+    "lon": 86.7646,
+    "headingDeg": 205,
+    "pitchDeg": -8,
+    "fovDeg": 68,
+    "rangeM": 400,
+    "mountHeightM": 6,
+    "groundElevationM": 3867,
+    "license": "VIRTUAL TRANSPOSITION — real gantry-lab feed (go2rtc snapshot), staged at this location"
+  }
+]

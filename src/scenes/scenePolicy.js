@@ -40,6 +40,9 @@ export const SCENE_TRACKING_PARAM_KEYS = Object.freeze([
   'selectedFlightsTrackingId',
   'selectedMilitaryTrackingId',
   'selectedSatTrackingId',
+  // ground-robots: restoring a robot selection re-issues requestWorldFocus
+  // (a camera flight) and can rearm the chase camera — a second camera writer.
+  'selectedRobotId',
 ]);
 
 /**
