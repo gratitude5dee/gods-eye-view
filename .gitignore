@@ -10,5 +10,8 @@ output/
 .DS_Store
 .gstack/
 3d-models/
+public/recon/*.ply
+public/recon/*.npy
+public/recon/*.png
 .vercel
 .env.local
