@@ -29,7 +29,7 @@ const MAX_PENDING_FRAMES = 2000;
 /** Shutdown drains pending frames for at most this long before exiting. */
 const SHUTDOWN_DRAIN_MS = 10_000;
 /** Providers this bridge may load; --provider is not a free module path. */
-const KNOWN_PROVIDERS = new Set(['synthetic', 'replay', 'phone', 'mujoco-g1']);
+const KNOWN_PROVIDERS = new Set(['synthetic', 'replay', 'phone', 'mujoco-g1', 'unitree']);
 
 function parseArgs(argv) {
   const args = {
