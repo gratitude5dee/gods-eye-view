@@ -1953,6 +1953,21 @@ body.ui-clean-view #scene-runtime.active {
   color: var(--text-secondary);
 }
 
+body:has(#robot-demo-panel:not([hidden])) #recon-demo-panel:not([hidden]) {
+  right: 312px;
+}
+
+/* Side-by-side needs 2 × 280px panels plus margins; narrower viewports put
+   the recon panel in the opposite (top-right) corner instead, since the
+   panels' runtime heights vary too much for a fixed vertical stack. */
+@media (max-width: 640px) {
+  body:has(#robot-demo-panel:not([hidden])) #recon-demo-panel:not([hidden]) {
+    right: 16px;
+    bottom: auto;
+    top: 72px;
+  }
+}
+
 .robot-demo-header {
   display: flex;
   align-items: center;
