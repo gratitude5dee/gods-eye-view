@@ -234,11 +234,11 @@ const RECON_CHASE_AFTER_FRAMES = 8;
  * simply reports that nothing is published instead of failing the button.
  *
  * @param {{setLayerEnabled: (layerId: string, enabled: boolean) => Promise<unknown>,
- *   releaseChase: () => void}} hooks - ui.js integration points.
+ *   releaseChase: () => void, cancelNavigation?: () => void}} hooks - ui.js integration points.
  * @param {{layer?: object, anchor?: object}} [overrides] - Test seams.
  * @returns {{stop: () => void, destroy: () => void, isRunning: () => boolean}}
  */
-export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {}) {
+export function initReconDemo({ setLayerEnabled, releaseChase, cancelNavigation }, overrides = {}) {
   const actions = document.getElementById('top-center-actions');
   if (!actions) return { stop: () => {}, destroy: () => {}, isRunning: () => false };
   const layer = overrides.layer || reconstructionCloudLayer;
@@ -538,8 +538,12 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     // The cloud stays: it is the recorded artifact, not the animation.
     layer.setRevealFraction(1);
     fields.status.textContent = 'STOPPED';
-    // Invalidate any walkthrough flight still awaiting its terrain sample.
-    if (walkMode) flightGeneration += 1;
+    // Invalidate any walkthrough flight still awaiting its terrain sample,
+    // and cancel one the camera is already flying.
+    if (walkMode) {
+      flightGeneration += 1;
+      cancelNavigation?.();
+    }
     walkMode = false;
     walkPhase = null;
     cctv.hidden = true;
