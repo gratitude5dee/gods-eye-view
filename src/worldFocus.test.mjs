@@ -141,7 +141,7 @@ test('fires frame wider than vessels — a fire is read by its surroundings', ()
 
 test('every framing is a real oblique standoff, not a nadir or an inside-out sphere', () => {
   const kinds = Object.keys(WORLD_FOCUS_FRAMING);
-  assert.deepEqual(kinds.sort(), ['fire', 'robot', 'vessel']);
+  assert.deepEqual(kinds.sort(), ['fire', 'recon', 'robot', 'vessel']);
   for (const kind of kinds) {
     const framing = WORLD_FOCUS_FRAMING[kind];
     // Looking DOWN at the target, but obliquely — a nadir drop reads as a map.
@@ -159,6 +159,7 @@ test('every framing is a real oblique standoff, not a nadir or an inside-out sph
   assert.deepEqual({ ...WORLD_FOCUS_FRAMING.vessel }, { radiusM: 150, rangeM: 1200, pitchDeg: -30 });
   assert.deepEqual({ ...WORLD_FOCUS_FRAMING.fire }, { radiusM: 400, rangeM: 3000, pitchDeg: -35 });
   assert.deepEqual({ ...WORLD_FOCUS_FRAMING.robot }, { radiusM: 30, rangeM: 250, pitchDeg: -25 });
+  assert.deepEqual({ ...WORLD_FOCUS_FRAMING.recon }, { radiusM: 60, rangeM: 700, pitchDeg: -45 });
 });
 
 test('unknown kinds and missing viewers issue no flight', () => {
