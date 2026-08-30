@@ -251,15 +251,21 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
   baseCampBtn.title = `Fly to the reconstruction anchor (${anchor.name || 'anchor'})`;
   baseCampBtn.setAttribute('aria-label', 'Fly to reconstruction base camp');
   baseCampBtn.textContent = '⌖ BASE CAMP';
-  baseCampBtn.addEventListener('click', () => {
-    const heightM = (anchor.elevM || 0) + (layer.getStats().anchorHeightM || 0);
+  let flightGeneration = 0;
+  async function flyToBaseCamp() {
+    const generation = ++flightGeneration;
+    const groundM = (await layer.resolveAnchorSurfaceHeightM?.(anchor)) || 0;
+    if (disposed || generation !== flightGeneration) return;
     requestWorldFocus({
       kind: 'robot',
       id: 'recon-base-camp',
-      position: Cesium.Cartesian3.fromDegrees(anchor.lon, anchor.lat, heightM),
+      position: Cesium.Cartesian3.fromDegrees(
+        anchor.lon, anchor.lat, groundM + (anchor.elevM || 0),
+      ),
       durationSec: 2.4,
     });
-  });
+  }
+  baseCampBtn.addEventListener('click', () => { void flyToBaseCamp(); });
   actions.appendChild(baseCampBtn);
 
   const panel = el('aside', 'robot-demo-panel');

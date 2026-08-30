@@ -338,6 +338,19 @@ const reconstructionCloudLayer = {
     return loadOnce();
   },
 
+  /**
+   * Surface height at an anchor: the height the cloud was placed on when it
+   * was measured, otherwise a fresh sample of the rendered surface.
+   * @param {{lat: number, lon: number}} [anchor]
+   * @returns {Promise<number>}
+   */
+  async resolveAnchorSurfaceHeightM(anchor = state.anchor) {
+    if (state.anchorHeightMeasured) return state.anchorHeightM;
+    if (!state.viewer || !anchor) return 0;
+    const ground = await resolveAnchorHeightM(state.viewer, anchor, state.epoch);
+    return ground.heightM;
+  },
+
   /** @returns {Array<{lat: number, lon: number, elevM: number, headingDeg: number}>} */
   getWaypoints() {
     return state.waypoints;
