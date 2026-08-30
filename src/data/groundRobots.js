@@ -479,6 +479,22 @@ const groundRobotsLayer = {
   },
 
   /**
+   * Inject locally generated frames (in-browser demo mode). Frames follow the
+   * same path as relayed telemetry — acceptFrame history + provenance chips —
+   * so the demo renders exactly like bridge-fed SIMULATED data.
+   * @param {object[]} frames - Canonical RobotFrames.
+   * @returns {boolean} Whether the layer was enabled to accept them.
+   */
+  ingestLocalFrames(frames) {
+    if (!state.enabled) return false;
+    const rx = Date.now();
+    for (const frame of frames || []) {
+      if (frame && frame.id && frame.pose) acceptFrame({ ...frame, rx });
+    }
+    return true;
+  },
+
+  /**
    * Engage the third-person chase camera on a robot. Camera motion itself is
    * owned by robotChaseCamera; ui.js tears it down via releaseCameraOwnership.
    * @param {string} [robotId] - Defaults to the selected robot.
