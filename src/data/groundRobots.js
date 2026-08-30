@@ -185,7 +185,11 @@ function renderTick() {
     const surface = Cesium.Cartesian3.fromDegrees(pose.lon, pose.lat, 0);
     const snapped = state.groundSnap?.heightFor(viewer, record.id, surface);
     if (!Number.isFinite(snapped) && !Number.isFinite(fallbackH)) continue;
-    const finalH = (Number.isFinite(snapped) ? snapped : fallbackH) + ROBOT_LIFT_M;
+    // AGL and slam-local altitudes are ground-relative offsets, so they ride
+    // on top of the snapped terrain height instead of being replaced by it.
+    const datum = record.latestFrame?.datum;
+    const groundRelativeH = (datum === 'agl' || datum === 'slam-local') ? pose.elevM : 0;
+    const finalH = (Number.isFinite(snapped) ? snapped + groundRelativeH : fallbackH) + ROBOT_LIFT_M;
     record.groundHeightM = Number.isFinite(snapped) ? snapped : null;
     record.position = Cesium.Cartesian3.fromDegrees(pose.lon, pose.lat, finalH);
     if (!record.billboard) {
