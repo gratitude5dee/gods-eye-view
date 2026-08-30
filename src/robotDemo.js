@@ -323,7 +323,9 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
         plyUrl: anchor.plyUrl,
         posesUrl: anchor.posesUrl,
       });
-      await setLayerEnabled('recon-cloud', true);
+      if (await setLayerEnabled('recon-cloud', true) === false) {
+        throw new Error('reconstruction layer refused to enable');
+      }
       const loaded = await layer.load();
       waypoints = layer.getWaypoints();
       fields.points.textContent = `${loaded.count.toLocaleString()} of ${layer.getStats().totalVertices.toLocaleString()}`;
@@ -332,6 +334,7 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
       fields.points.textContent = String(error?.message || error).slice(0, 80);
       button.disabled = false;
       showIdle();
+      void setLayerEnabled('recon-cloud', false);
       return;
     } finally {
       if (!disposed) button.disabled = false;
@@ -339,10 +342,23 @@ export function initReconDemo({ setLayerEnabled, releaseChase }, overrides = {})
     if (disposed || generation !== startGeneration || timer) return;
     if (!waypoints.length) {
       fields.status.textContent = 'NO CAMERA TRAJECTORY';
+      showIdle();
       return;
     }
-    await setLayerEnabled('ground-robots', true);
+    // A refused robot layer would replay an invisible walker over the cloud, so
+    // the cloud stays (it loaded) but the animation does not start.
+    let robotsEnabled;
+    try {
+      robotsEnabled = await setLayerEnabled('ground-robots', true);
+    } catch {
+      robotsEnabled = false;
+    }
     if (disposed || generation !== startGeneration || timer) return;
+    if (robotsEnabled === false) {
+      fields.status.textContent = 'ROBOT LAYER UNAVAILABLE';
+      showIdle();
+      return;
+    }
     replay = createReconstructionReplay({
       waypoints,
       id: DEMO_ROBOT_ID,

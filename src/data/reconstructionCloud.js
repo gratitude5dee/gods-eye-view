@@ -41,6 +41,10 @@ const MAX_POINTS = 220_000;
 const POINT_PIXEL_SIZE = 3;
 /** @const {number} Meters of ground clearance, so points do not z-fight terrain. */
 const CLOUD_LIFT_M = 0.05;
+/** @const {number} Surface-height samples before the anchor gives up on tiles. */
+const ANCHOR_HEIGHT_ATTEMPTS = 8;
+/** @const {number} Milliseconds between those samples, for tiles to stream in. */
+const ANCHOR_HEIGHT_RETRY_MS = 400;
 
 const state = {
   viewer: null,
@@ -63,6 +67,9 @@ const state = {
   epoch: 0,
   /** @type {Promise<{count: number, poses: number}>|null} In-flight load. */
   inflight: null,
+  /** Surface height the cloud was placed on, and whether it was measured. */
+  anchorHeightM: 0,
+  anchorHeightMeasured: false,
 };
 
 function ensureCollection(viewer) {
@@ -82,23 +89,63 @@ function clearPoints() {
   state.revealed = 0;
 }
 
-/** Terrain height under the anchor, so slam-local offsets ride the ground. */
-function anchorGroundHeightM(viewer, anchor) {
-  const globe = viewer?.scene?.globe;
-  if (!globe) return 0;
-  const height = globe.getHeight(Cesium.Cartographic.fromDegrees(anchor.lon, anchor.lat));
-  return Number.isFinite(height) ? height : 0;
+const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+/**
+ * Surface height under the anchor. The default stack is Google photoreal 3D
+ * Tiles with `globe.show === false`, so `globe.getHeight` describes a surface
+ * nobody can see — at a mountain anchor it answers the ellipsoid and the cloud
+ * ends up kilometres underground. `sampleHeightMostDetailed` picks the RENDERED
+ * surface and streams the tiles it needs, which is also what the replayed robot
+ * rides on (groundSnap.js). The terrain-globe stacks keep `getHeight` as the
+ * fallback.
+ * @returns {Promise<number|null>} Null while nothing sampleable has resolved.
+ */
+async function sampleAnchorHeightM(viewer, anchor) {
+  const scene = viewer?.scene;
+  if (!scene) return null;
+  if (scene.sampleHeightSupported && typeof scene.sampleHeightMostDetailed === 'function') {
+    try {
+      const sampled = await scene.sampleHeightMostDetailed(
+        [Cesium.Cartographic.fromDegrees(anchor.lon, anchor.lat)],
+      );
+      const height = sampled?.[0]?.height;
+      if (Number.isFinite(height)) return height;
+    } catch {
+      // Sampling is best-effort; fall through to the globe.
+    }
+  }
+  if (scene.globe?.show === false) return null;
+  const globeH = scene.globe?.getHeight(Cesium.Cartographic.fromDegrees(anchor.lon, anchor.lat));
+  return Number.isFinite(globeH) ? globeH : null;
+}
+
+/**
+ * Resolve the anchor's surface height before any point is placed: a bounded
+ * retry, because tiles at an anchor the camera has never visited stream in
+ * asynchronously and the first sample usually misses.
+ * @returns {Promise<{heightM: number, measured: boolean}>}
+ */
+async function resolveAnchorHeightM(viewer, anchor, epoch) {
+  for (let attempt = 0; attempt < ANCHOR_HEIGHT_ATTEMPTS; attempt += 1) {
+    if (epoch !== state.epoch) return { heightM: 0, measured: false };
+    const heightM = await sampleAnchorHeightM(viewer, anchor);
+    if (heightM !== null) return { heightM, measured: true };
+    if (attempt < ANCHOR_HEIGHT_ATTEMPTS - 1) await delay(ANCHOR_HEIGHT_RETRY_MS);
+  }
+  // Nothing sampleable (keyless globe, no tiles): the ellipsoid is the only
+  // surface there is, and getStats() reports the placement as unmeasured.
+  return { heightM: 0, measured: false };
 }
 
 /**
  * Build the ENU→ECEF frame for an anchor, ground-snapped like a `slam-local`
  * robot pose (see groundRobots.js).
- * @param {Cesium.Viewer} viewer
  * @param {{lat: number, lon: number, elevM: number}} anchor
+ * @param {number} groundM - Resolved surface height at the anchor.
  * @returns {Cesium.Matrix4}
  */
-function anchorFrame(viewer, anchor) {
-  const groundM = anchorGroundHeightM(viewer, anchor);
+function anchorFrame(anchor, groundM) {
   const origin = Cesium.Cartesian3.fromDegrees(
     anchor.lon,
     anchor.lat,
@@ -107,10 +154,10 @@ function anchorFrame(viewer, anchor) {
   return Cesium.Transforms.eastNorthUpToFixedFrame(origin);
 }
 
-function addPoints(viewer, cloud, anchor) {
+function addPoints(viewer, cloud, anchor, groundM) {
   const collection = ensureCollection(viewer);
   if (!collection) return;
-  const frame = anchorFrame(viewer, anchor);
+  const frame = anchorFrame(anchor, groundM);
   const enuScratch = new Cesium.Cartesian3();
   for (let i = 0; i < cloud.count; i += 1) {
     const at = i * 3;
@@ -158,8 +205,15 @@ async function loadReconstruction() {
     ]);
     if (epoch !== state.epoch) return { count: 0, poses: 0 };
     const cloud = parseBinaryPly(plyBytes, { maxPoints: MAX_POINTS });
+    // Placement waits on the surface: a cloud written against the wrong height
+    // is buried or floating, and re-placing 220k primitives afterwards is worse
+    // than waiting for the tiles.
+    const ground = await resolveAnchorHeightM(viewer, anchor, epoch);
+    if (epoch !== state.epoch) return { count: 0, poses: 0 };
     clearPoints();
-    addPoints(viewer, cloud, anchor);
+    addPoints(viewer, cloud, anchor, ground.heightM);
+    state.anchorHeightM = ground.heightM;
+    state.anchorHeightMeasured = ground.measured;
     state.totalVertices = cloud.totalVertices;
     state.waypoints = poseBytes ? anchorPoseTrack(parsePoseTrack(poseBytes), anchor) : [];
     state.loadedFrom = state.plyUrl;
@@ -233,6 +287,12 @@ const reconstructionCloudLayer = {
     return loadOnce().catch(() => {});
   },
 
+  // A static asset has nothing to poll, but the manager treats a missing
+  // `update` as a failed lifecycle and disables the layer again.
+  update() {
+    return true;
+  },
+
   disable() {
     state.enabled = false;
     if (state.collection) state.collection.show = false;
@@ -294,6 +354,8 @@ const reconstructionCloudLayer = {
       totalVertices: state.totalVertices,
       revealed: state.revealed,
       poses: state.waypoints.length,
+      anchorHeightM: state.anchorHeightM,
+      anchorHeightMeasured: state.anchorHeightMeasured,
     };
   },
 };
