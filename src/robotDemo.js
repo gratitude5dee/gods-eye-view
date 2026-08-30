@@ -99,6 +99,9 @@ export function initRobotDemo({ setLayerEnabled, releaseChase }) {
   let walker = null;
   let frameCount = 0;
   let chaseRequested = false;
+  let disposed = false;
+  /** Invalidates a pending start when stop/destroy runs during its await. */
+  let startGeneration = 0;
 
   function renderPanel(frame) {
     chipEl.textContent = provenanceChip(frame);
@@ -140,13 +143,20 @@ export function initRobotDemo({ setLayerEnabled, releaseChase }) {
   }
 
   async function start() {
-    if (timer) return;
+    if (timer || disposed) return;
+    const generation = ++startGeneration;
     button.disabled = true;
+    let enabled;
     try {
-      await setLayerEnabled('ground-robots', true);
+      enabled = await setLayerEnabled('ground-robots', true);
+    } catch {
+      enabled = false;
     } finally {
-      button.disabled = false;
+      if (!disposed) button.disabled = false;
     }
+    // A refused enable (visibility guard, layer error) or a stop/destroy
+    // during the await means no demo: leave the idle button state untouched.
+    if (enabled === false || disposed || generation !== startGeneration || timer) return;
     walker = createSyntheticWalker({
       route,
       seed: 5,
@@ -164,6 +174,7 @@ export function initRobotDemo({ setLayerEnabled, releaseChase }) {
   }
 
   function stop() {
+    startGeneration += 1;
     if (!timer) return;
     clearInterval(timer);
     timer = null;
@@ -183,6 +194,7 @@ export function initRobotDemo({ setLayerEnabled, releaseChase }) {
   return {
     stop,
     destroy() {
+      disposed = true;
       stop();
       button.remove();
       panel.remove();
